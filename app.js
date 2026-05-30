@@ -24,7 +24,7 @@
   function polishCopy() {
     setText(".hero-grid h1", "Saturn points command center");
     const copy = document.querySelector(".hero-copy");
-    if (copy) copy.textContent = "Leaderboard totals, wallet lookup, and point velocity from public Saturn data.";
+    if (copy) copy.textContent = "Leaderboard totals, wallet lookup, and point distribution from public Saturn data.";
     const title = document.querySelector("#walletStatusTitle");
     if (title && title.textContent.trim() === "Public wallet tracking") {
       title.textContent = "Lookup wallet, rank, or points";
