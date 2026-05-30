@@ -11,10 +11,6 @@
       next.maximumFractionDigits = 0;
     }
 
-    if (next.notation === "compact" && !next.style) {
-      next.maximumFractionDigits = 0;
-    }
-
     return next;
   }
 
