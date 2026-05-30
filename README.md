@@ -28,6 +28,41 @@ The calculation mirrors the public Saturn client bundle:
 
 The farm analysis page does not ship fixed wallet addresses. Users paste one or more public wallet addresses, save them locally in their browser, and can copy/export the saved list or CSV point table.
 
+## Daily Leaderboard Snapshots
+
+The production dashboard can record backend leaderboard snapshots once per day at `01:30 UTC`.
+Those snapshots power the `Movement` column in the public leaderboard and the daily distribution cards.
+
+### Required Vercel Setup
+
+1. Add an Upstash Redis database from the Vercel Marketplace.
+2. Make sure these environment variables are available in Production:
+   - `UPSTASH_REDIS_REST_URL`
+   - `UPSTASH_REDIS_REST_TOKEN`
+   - `CRON_SECRET`
+3. Deploy to Production. Vercel Cron will call:
+   `/api/cron/snapshot-leaderboard`
+
+The API also exposes:
+
+- `/api/leaderboard-movement` - latest stored rank snapshot for the Movement column
+- `/api/daily-distribution` - stored daily total distributed point snapshots
+
+The cron schedule is configured in `vercel.json`:
+
+```json
+{
+  "crons": [
+    {
+      "path": "/api/cron/snapshot-leaderboard",
+      "schedule": "30 1 * * *"
+    }
+  ]
+}
+```
+
+Snapshots start from `2026-06-01` UTC. The cron endpoint is idempotent, so it will not overwrite an existing snapshot for the same UTC day.
+
 ## Referral Code
 
 `SAT-50BD800F`
