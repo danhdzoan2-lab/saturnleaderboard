@@ -86,6 +86,28 @@ function debankUrl(address) {
   return `https://debank.com/profile/${address}`;
 }
 
+function fallbackCopy(text) {
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  document.body.removeChild(textarea);
+  return copied;
+}
+
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return true;
+  }
+
+  return fallbackCopy(text);
+}
+
 function unitsToNumber(rawValue) {
   let value = typeof rawValue === "bigint" ? rawValue : BigInt(rawValue || 0);
   const negative = value < 0n;
@@ -478,6 +500,23 @@ document.querySelectorAll(".segment").forEach((button) => {
 
 elements.walletSearch.addEventListener("input", (event) => {
   renderLeaderboard(event.target.value);
+});
+
+document.querySelectorAll("[data-copy-ref]").forEach((button) => {
+  button.addEventListener("click", async () => {
+    const originalText = button.textContent;
+
+    try {
+      await copyText(button.dataset.copyRef);
+      button.textContent = "Copied";
+    } catch {
+      button.textContent = "Copy failed";
+    }
+
+    setTimeout(() => {
+      button.textContent = originalText;
+    }, 1500);
+  });
 });
 
 elements.walletSearch.placeholder = "0x wallet, rank, or points";
