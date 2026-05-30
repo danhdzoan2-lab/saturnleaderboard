@@ -1,6 +1,30 @@
 (() => {
+  const NativeNumberFormat = Intl.NumberFormat;
   const script = document.createElement("script");
   let polishing = false;
+
+  function normalizeOptions(options) {
+    if (!options || typeof options !== "object") return options;
+    const next = { ...options };
+
+    if (next.maximumFractionDigits === 3) {
+      next.maximumFractionDigits = 0;
+    }
+
+    if (next.notation === "compact" && !next.style) {
+      next.maximumFractionDigits = 0;
+    }
+
+    return next;
+  }
+
+  function PatchedNumberFormat(locales, options) {
+    return new NativeNumberFormat(locales, normalizeOptions(options));
+  }
+
+  function restoreNumberFormat() {
+    Intl.NumberFormat = NativeNumberFormat;
+  }
 
   function setTextIfChanged(element, nextText) {
     if (element && element.textContent !== nextText) {
@@ -64,8 +88,18 @@
     });
   }
 
+  PatchedNumberFormat.prototype = NativeNumberFormat.prototype;
+  PatchedNumberFormat.supportedLocalesOf = NativeNumberFormat.supportedLocalesOf.bind(NativeNumberFormat);
+  Intl.NumberFormat = PatchedNumberFormat;
+
   script.src = "analysis-base.js";
-  script.onload = startPolish;
-  script.onerror = startPolish;
+  script.onload = () => {
+    restoreNumberFormat();
+    startPolish();
+  };
+  script.onerror = () => {
+    restoreNumberFormat();
+    startPolish();
+  };
   document.head.appendChild(script);
 })();
