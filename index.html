@@ -25,10 +25,8 @@
       </a>
 
       <nav class="main-nav" aria-label="Primary navigation">
-        <a href="#deposit">01 Deposit</a>
-        <a href="#strategies">02 Strategies</a>
-        <a href="#insights">03 Insights</a>
-        <a class="active" href="#portfolio">04 Portfolio</a>
+        <a class="active" href="index.html">01 Point Dashboard</a>
+        <a href="analysis.html">02 Farm Analysis</a>
       </nav>
 
       <div class="header-stats" aria-label="Global Saturn metrics">
@@ -39,7 +37,7 @@
 
     <main class="site-shell dashboard" id="portfolio">
       <section class="hero-panel reveal">
-        <div class="epoch-pill">/04 Portfolio · Epoch 1</div>
+        <div class="epoch-pill">/01 Point Dashboard - Epoch 1</div>
         <div class="hero-grid">
           <div>
             <p class="kicker">Saturn Point Dashboard</p>
@@ -107,7 +105,21 @@
         </article>
       </section>
 
-      <section class="content-grid">
+      <section class="ref-card reveal" aria-label="Saturn referral code">
+        <div class="ref-accent" aria-hidden="true"></div>
+        <span class="ref-badge">Boosted</span>
+        <div>
+          <small>Referral Code</small>
+          <strong>SAT-50BD800F</strong>
+        </div>
+        <p>Use this code when depositing to earn boosted points multiplier during Season 1.</p>
+        <div class="ref-actions">
+          <button class="ghost-btn compact-action" type="button" data-copy-ref="SAT-50BD800F">Copy</button>
+          <a class="ghost-btn compact-action" href="https://app.saturn.credit/" target="_blank" rel="noopener noreferrer">Open app</a>
+        </div>
+      </section>
+
+      <section class="content-grid single-column">
         <article class="panel points-panel reveal">
           <div class="panel-heading">
             <div>
@@ -209,34 +221,6 @@
             </span>
           </div>
         </article>
-
-        <aside class="panel fair-value-panel reveal">
-          <span class="card-label">/ Source Rules</span>
-          <h2>Point source</h2>
-          <div class="fair-row">
-            <span class="coin-mark btc" aria-hidden="true"></span>
-            <div>
-              <strong>Saturn Point Token</strong>
-              <small>Merkl reward token address</small>
-            </div>
-            <b>D223</b>
-          </div>
-          <div class="fair-row">
-            <span class="coin-mark sat" aria-hidden="true"></span>
-            <div>
-              <strong>Excluded Address</strong>
-              <small>Removed from distributed total and ranks</small>
-            </div>
-            <b>80c6</b>
-          </div>
-          <div class="reserve-meter" aria-label="Reserve utilization 67 percent">
-            <span style="width: 67%"></span>
-          </div>
-          <p>
-            This tracker follows the public calculation visible in Saturn’s
-            client bundle: 18-decimal reward values plus pending rewards.
-          </p>
-        </aside>
       </section>
 
       <section class="panel table-panel reveal" id="leaderboard">
