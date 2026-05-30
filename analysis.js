@@ -41,10 +41,24 @@
     });
   }
 
+  function polishStaticCopy() {
+    setTextIfChanged(document.querySelector(".farm-hero .hero-grid h1"), "Analyze your Saturn farm");
+    const copy = document.querySelector(".farm-hero .hero-copy");
+    if (copy) {
+      setTextIfChanged(
+        copy,
+        "Save multiple public wallet addresses, total their Saturn points, compare contribution, and inspect airdrop scenarios."
+      );
+    }
+    setTextIfChanged(document.querySelector(".wallet-manager-card .card-label"), "/ Saved Wallet List");
+    setTextIfChanged(document.querySelector(".moonsheet-panel .card-label"), "/ Airdrop Estimate");
+  }
+
   function polishFdvLabels() {
     if (polishing || !document.body) return;
     polishing = true;
 
+    polishStaticCopy();
     replaceText(".metric-card small", [[/^Base:\s*/i, "$500M FDV - "]]);
     replaceText(".moonsheet-highlight small", [[/^Base\s+airdrop/i, "$500M airdrop"]]);
 
