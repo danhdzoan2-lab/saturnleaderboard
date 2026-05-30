@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Saturn Point Dashboard</title>
+    <meta
+      name="description"
+      content="A Saturn-inspired point dashboard that tracks public Saturn point data from Merkl."
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="noise" aria-hidden="true"></div>
+    <div class="orb orb-one" aria-hidden="true"></div>
+    <div class="orb orb-two" aria-hidden="true"></div>
+
+    <header class="site-shell topbar" aria-label="Saturn dashboard header">
+      <a class="brand" href="#" aria-label="Saturn Point Dashboard home">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>
+          <strong>Saturn</strong>
+          <small>/ built on digital credit</small>
+        </span>
+      </a>
+
+      <nav class="main-nav" aria-label="Primary navigation">
+        <a href="#deposit">01 Deposit</a>
+        <a href="#strategies">02 Strategies</a>
+        <a href="#insights">03 Insights</a>
+        <a class="active" href="#portfolio">04 Portfolio</a>
+      </nav>
+
+      <div class="header-stats" aria-label="Global Saturn metrics">
+        <span><strong>11%+</strong> APY</span>
+        <span><strong id="headerPoints">0.0</strong> Points</span>
+      </div>
+    </header>
+
+    <main class="site-shell dashboard" id="portfolio">
+      <section class="hero-panel reveal">
+        <div class="epoch-pill">/04 Portfolio · Epoch 1</div>
+        <div class="hero-grid">
+          <div>
+            <p class="kicker">Saturn Point Dashboard</p>
+            <h1>Track Saturn points.</h1>
+            <p class="hero-copy">
+              Public point totals, leaderboard rows, and wallet lookup from the
+              same source used by Saturn.
+            </p>
+            <div class="hero-actions">
+              <button class="primary-btn" id="refreshData" type="button">
+                Refresh data
+              </button>
+              <a class="ghost-btn" href="#leaderboard">View leaderboard</a>
+            </div>
+          </div>
+
+          <aside class="wallet-card" aria-live="polite">
+            <span class="card-label">/ Wallet Lookup</span>
+            <h2 id="walletStatusTitle">Public wallet tracking</h2>
+            <p id="walletStatusText">
+              Paste a wallet address to calculate public Saturn points and top-1000 rank.
+            </p>
+            <form class="wallet-lookup" id="walletLookupForm">
+              <label for="walletInput">Wallet address</label>
+              <div>
+                <input
+                  id="walletInput"
+                  type="text"
+                  inputmode="text"
+                  placeholder="0x..."
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <button type="submit">Track</button>
+              </div>
+            </form>
+            <div class="wallet-address" id="walletAddress">No wallet selected</div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="metrics-grid" aria-label="Dashboard summary metrics">
+        <article class="metric-card reveal">
+          <span class="metric-label">Leaderboard Rows</span>
+          <strong id="tvlMetric">0</strong>
+          <small>Public top-1000 window</small>
+        </article>
+
+        <article class="metric-card reveal">
+          <span class="metric-label">Refresh Cadence</span>
+          <strong>60s</strong>
+          <small>Matches Saturn app cache interval</small>
+        </article>
+
+        <article class="metric-card reveal">
+          <span class="metric-label">Points Distributed</span>
+          <strong id="pointsDistributed">Loading</strong>
+          <small id="pointsUpdated">Public Merkl data</small>
+        </article>
+
+        <article class="metric-card reveal highlighted">
+          <span class="metric-label">Your Rank</span>
+          <strong id="rankMetric">—</strong>
+          <small id="rankCaption">Enter wallet to calculate</small>
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <article class="panel points-panel reveal">
+          <div class="panel-heading">
+            <div>
+              <span class="card-label">/ Points Distribution</span>
+              <h2>Leaderboard points</h2>
+            </div>
+            <div class="segmented" role="group" aria-label="Leaderboard chart span">
+              <button class="segment active" type="button" data-range="10">Top 10</button>
+              <button class="segment" type="button" data-range="50">Top 50</button>
+              <button class="segment" type="button" data-range="100">Top 100</button>
+            </div>
+          </div>
+
+          <div class="points-total">
+            <span id="pointsTotalLabel">Top 10 Wallet Points</span>
+            <strong id="pointsTotal">0.0</strong>
+          </div>
+
+          <div class="chart-summary" aria-label="Selected leaderboard range summary">
+            <span>
+              <small>Range</small>
+              <strong id="chartRangeLabel">Top 10 wallets</strong>
+            </span>
+            <span>
+              <small>Average / Wallet</small>
+              <strong id="chartAverage">—</strong>
+            </span>
+            <span>
+              <small>Cutoff Points</small>
+              <strong id="chartCutoff">—</strong>
+            </span>
+          </div>
+
+          <div class="daily-distribution" aria-label="Daily total points distributed">
+            <span>
+              <small>Daily Distributed</small>
+              <strong id="dailyDistributed">—</strong>
+            </span>
+            <span>
+              <small>Previous Day</small>
+              <strong id="previousDailyDistributed">—</strong>
+            </span>
+            <span>
+              <small>7D Local Average</small>
+              <strong id="dailyAverage">—</strong>
+            </span>
+            <span>
+              <small>Tracked Days</small>
+              <strong id="trackedDays">0</strong>
+            </span>
+          </div>
+
+          <div class="chart-wrap">
+            <svg
+              class="line-chart"
+              id="pointsChart"
+              role="img"
+              aria-labelledby="chartTitle chartDesc"
+              viewBox="0 0 640 260"
+            >
+              <title id="chartTitle">Saturn points trend</title>
+              <desc id="chartDesc">A line chart showing public Saturn leaderboard point distribution.</desc>
+              <defs>
+                <linearGradient id="chartFill" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stop-color="#fbcc78" stop-opacity="0.42" />
+                  <stop offset="100%" stop-color="#fbcc78" stop-opacity="0" />
+                </linearGradient>
+              </defs>
+              <g class="grid-lines" aria-hidden="true">
+                <path d="M40 30H620" />
+                <path d="M40 80H620" />
+                <path d="M40 130H620" />
+                <path d="M40 180H620" />
+                <path d="M40 230H620" />
+              </g>
+              <path id="chartArea" class="chart-area" d="" />
+              <path id="chartLine" class="chart-line" d="" />
+              <g id="chartDots"></g>
+            </svg>
+            <div class="chart-labels">
+              <span id="chartLowLabel">Rank #10</span>
+              <span>Points by leaderboard rank</span>
+              <span id="chartHighLabel">Rank #1</span>
+            </div>
+          </div>
+
+          <div class="mini-stats">
+            <span>
+              <small>Public Rows</small>
+              <strong id="epochPace">—</strong>
+            </span>
+            <span>
+              <small>#1 Points</small>
+              <strong id="multiplier">—</strong>
+            </span>
+            <span>
+              <small>Selected Range</small>
+              <strong id="nextRank">—</strong>
+            </span>
+          </div>
+        </article>
+
+        <aside class="panel fair-value-panel reveal">
+          <span class="card-label">/ Source Rules</span>
+          <h2>Point source</h2>
+          <div class="fair-row">
+            <span class="coin-mark btc" aria-hidden="true"></span>
+            <div>
+              <strong>Saturn Point Token</strong>
+              <small>Merkl reward token address</small>
+            </div>
+            <b>D223</b>
+          </div>
+          <div class="fair-row">
+            <span class="coin-mark sat" aria-hidden="true"></span>
+            <div>
+              <strong>Excluded Address</strong>
+              <small>Removed from distributed total and ranks</small>
+            </div>
+            <b>80c6</b>
+          </div>
+          <div class="reserve-meter" aria-label="Reserve utilization 67 percent">
+            <span style="width: 67%"></span>
+          </div>
+          <p>
+            This tracker follows the public calculation visible in Saturn’s
+            client bundle: 18-decimal reward values plus pending rewards.
+          </p>
+        </aside>
+      </section>
+
+      <section class="panel table-panel reveal" id="leaderboard">
+        <div class="panel-heading table-heading">
+          <div>
+            <span class="card-label">/ Leaderboard</span>
+            <h2>Saturn points leaderboard</h2>
+          </div>
+        </div>
+
+        <div class="table-toolbar">
+          <label class="search-box">
+            <span>Search wallet</span>
+            <input
+              id="walletSearch"
+              type="search"
+              placeholder="0x wallet, rank, or points"
+              autocomplete="off"
+            />
+          </label>
+          <div class="sync-status">
+            <span class="pulse-dot" aria-hidden="true"></span>
+            <span id="syncStatusText">Loading public data</span>
+          </div>
+        </div>
+
+        <div class="table-view active" id="leaderboardView">
+          <div class="responsive-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Wallet</th>
+                  <th>Points</th>
+                  <th>TVL</th>
+                  <th>Velocity</th>
+                </tr>
+              </thead>
+              <tbody id="leaderboardRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-shell footer">
+      <span>/ Source: public Merkl reward data used by Saturn</span>
+      <span>Read-only point tracker</span>
+    </footer>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>
