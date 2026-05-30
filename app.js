@@ -5,7 +5,6 @@
   let movementRanks = new Map();
   let movementDate = null;
   let dailyStats = null;
-  let patchingDaily = false;
 
   function normalizeOptions(options) {
     if (!options || typeof options !== "object") return options;
@@ -31,6 +30,10 @@
   function setText(selector, text) {
     const element = document.querySelector(selector);
     if (element && element.textContent.trim() !== text) element.textContent = text;
+  }
+
+  function setElementText(element, text) {
+    if (element && element.textContent !== text) element.textContent = text;
   }
 
   function formatAddress(address) {
@@ -204,8 +207,7 @@
   }
 
   function applyDailyStats() {
-    if (!dailyStats || patchingDaily) return;
-    patchingDaily = true;
+    if (!dailyStats) return;
 
     const dailyText = dailyStats.daily == null ? "Need 2 days" : formatCompact.format(dailyStats.daily);
     const previousText = dailyStats.previous == null ? "Need 3 days" : formatCompact.format(dailyStats.previous);
@@ -218,19 +220,17 @@
     const average = document.querySelector("#dailyAverage");
     const tracked = document.querySelector("#trackedDays");
 
-    if (daily) daily.textContent = dailyText;
-    if (dailyMetric) dailyMetric.textContent = dailyText;
-    if (caption) caption.textContent = dailyStats.caption;
-    if (previous) previous.textContent = previousText;
-    if (average) average.textContent = averageText;
-    if (tracked) tracked.textContent = formatNumber.format(dailyStats.trackedDays);
+    setElementText(daily, dailyText);
+    setElementText(dailyMetric, dailyText);
+    setElementText(caption, dailyStats.caption);
+    setElementText(previous, previousText);
+    setElementText(average, averageText);
+    setElementText(tracked, formatNumber.format(dailyStats.trackedDays));
 
     setPending(daily, dailyStats.daily == null);
     setPending(dailyMetric, dailyStats.daily == null);
     setPending(previous, dailyStats.previous == null);
     setPending(average, dailyStats.average == null);
-
-    patchingDaily = false;
   }
 
   async function loadMovement() {
@@ -270,12 +270,11 @@
       });
     }
 
-    const pointsPanel = document.querySelector(".points-panel");
-    if (pointsPanel) {
-      new MutationObserver(() => requestAnimationFrame(applyDailyStats)).observe(pointsPanel, {
-        childList: true,
-        characterData: true,
-        subtree: true,
+    const refresh = document.querySelector("#refreshData");
+    if (refresh) {
+      refresh.addEventListener("click", () => {
+        setTimeout(loadMovement, 2200);
+        setTimeout(loadDailyDistribution, 2400);
       });
     }
   }
