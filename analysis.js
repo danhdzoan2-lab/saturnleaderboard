@@ -41,6 +41,26 @@
     });
   }
 
+  function injectAirdropStyles() {
+    if (document.querySelector("#airdrop-polish")) return;
+
+    const style = document.createElement("style");
+    style.id = "airdrop-polish";
+    style.textContent = `
+      .moonsheet-grid article{display:flex;flex-direction:column;justify-content:space-between}
+      .moonsheet-grid small{min-height:2.25em}
+      .moonsheet-grid strong{margin-top:12px}
+      .scenario-picker{margin-top:16px}
+      .scenario-picker label{gap:10px}
+      .scenario-picker select{box-shadow:inset 0 0 0 1px rgba(255,255,255,.025);padding:16px 48px 16px 16px}
+      .scenario-picker label::after{content:"";right:18px;bottom:19px;width:8px;height:8px;border-right:2px solid var(--gold);border-bottom:2px solid var(--gold);transform:rotate(45deg)}
+      .scenario-table{min-width:560px}
+      .scenario-table th:nth-child(3),.scenario-table td:nth-child(3),.scenario-table th:nth-child(4),.scenario-table td:nth-child(4){display:none}
+      @media(max-width:640px){.moonsheet-grid small{min-height:0}}
+    `;
+    document.head.appendChild(style);
+  }
+
   function polishStaticCopy() {
     setTextIfChanged(document.querySelector(".farm-hero .hero-grid h1"), "Analyze your Saturn farm");
     const copy = document.querySelector(".farm-hero .hero-copy");
@@ -54,11 +74,17 @@
     setTextIfChanged(document.querySelector(".moonsheet-panel .card-label"), "/ Airdrop Estimate");
   }
 
+  function polishScenarioTable() {
+    setTextIfChanged(document.querySelector(".scenario-table thead th:first-child"), "FDV");
+  }
+
   function polishFdvLabels() {
     if (polishing || !document.body) return;
     polishing = true;
 
+    injectAirdropStyles();
     polishStaticCopy();
+    polishScenarioTable();
     replaceText(".metric-card small", [[/^Base:\s*/i, "$500M FDV - "]]);
     replaceText(".moonsheet-highlight small", [[/^Base\s+airdrop/i, "$500M airdrop"]]);
 
