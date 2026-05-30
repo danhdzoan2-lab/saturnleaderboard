@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Saturn Farm Point Analysis</title>
+    <meta
+      name="description"
+      content="Track Saturn points across saved wallets using public Merkl point data."
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="noise" aria-hidden="true"></div>
+    <div class="orb orb-one" aria-hidden="true"></div>
+    <div class="orb orb-two" aria-hidden="true"></div>
+
+    <header class="site-shell topbar" aria-label="Saturn farm analysis header">
+      <a class="brand" href="index.html" aria-label="Saturn Point Dashboard home">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>
+          <strong>Saturn</strong>
+          <small>/ farm point analysis</small>
+        </span>
+      </a>
+
+      <nav class="main-nav" aria-label="Primary navigation">
+        <a href="index.html">01 Point Dashboard</a>
+        <a class="active" href="analysis.html">02 Farm Analysis</a>
+      </nav>
+
+      <div class="header-stats" aria-label="Farm analysis quick stats">
+        <span><strong id="walletCountStat">0</strong> Wallets</span>
+        <span><strong id="farmHeaderPoints">0.0</strong> Points</span>
+      </div>
+    </header>
+
+    <main class="site-shell dashboard farm-dashboard">
+      <section class="hero-panel farm-hero reveal">
+        <div class="epoch-pill">/02 Farm Analysis - Season 1</div>
+        <div class="hero-grid farm-hero-grid">
+          <div>
+            <p class="kicker">Farm Analysis</p>
+            <h1>Track your Saturn farm.</h1>
+            <p class="hero-copy">
+              Save multiple public wallet addresses, total their Saturn points,
+              compare contribution, and inspect airdrop scenarios.
+            </p>
+            <div class="hero-actions">
+              <button class="primary-btn" id="refreshFarm" type="button">
+                Refresh points
+              </button>
+              <a class="ghost-btn" href="index.html">Open dashboard</a>
+            </div>
+          </div>
+
+          <aside class="wallet-card wallet-manager-card">
+            <span class="card-label">/ Wallet List</span>
+            <h2>Saved wallets</h2>
+            <p>Paste one or more 0x addresses. Your list is saved locally in this browser.</p>
+            <form class="wallet-manager" id="walletManagerForm">
+              <label for="walletListInput">Wallet addresses</label>
+              <textarea
+                id="walletListInput"
+                rows="5"
+                placeholder="0x...&#10;0x...&#10;0x..."
+                spellcheck="false"
+              ></textarea>
+              <div class="wallet-manager-actions">
+                <button class="primary-btn compact-action" type="submit">Save wallets</button>
+                <button class="ghost-btn compact-action" id="copyWallets" type="button">Copy wallets</button>
+                <button class="ghost-btn compact-action" id="clearWallets" type="button">Clear</button>
+              </div>
+            </form>
+            <div class="wallet-address" id="walletListStatus">No wallets saved.</div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="ref-card reveal" aria-label="Saturn referral code">
+        <div class="ref-accent" aria-hidden="true"></div>
+        <span class="ref-badge">Boosted</span>
+        <div>
+          <small>Referral Code</small>
+          <strong>SAT-50BD800F</strong>
+        </div>
+        <p>Use this code when depositing to earn boosted points multiplier during Season 1.</p>
+        <div class="ref-actions">
+          <button class="ghost-btn compact-action" type="button" data-copy-ref="SAT-50BD800F">Copy</button>
+          <a class="ghost-btn compact-action" href="https://app.saturn.credit/" target="_blank" rel="noopener noreferrer">Open app</a>
+        </div>
+      </section>
+
+      <section class="metrics-grid farm-metrics" aria-label="Farm summary metrics">
+        <article class="metric-card reveal highlighted">
+          <span class="metric-label">Total Farm Points</span>
+          <strong id="totalFarmPoints">Loading</strong>
+          <small>Sum of saved wallets</small>
+        </article>
+
+        <article class="metric-card reveal">
+          <span class="metric-label">Share Of Total</span>
+          <strong id="pointShare">-</strong>
+          <small id="networkTotalCaption">Loading total points</small>
+        </article>
+
+        <article class="metric-card reveal">
+          <span class="metric-label">Moonsheet Value</span>
+          <strong id="moonsheetValue">-</strong>
+          <small>Base: 5% airdrop - 1x TVL FDV</small>
+        </article>
+
+        <article class="metric-card reveal">
+          <span class="metric-label">Projected Snapshot</span>
+          <strong id="projectedSnapshotPoints">-</strong>
+          <small>Season 1 - Aug 8, 2026</small>
+        </article>
+      </section>
+
+      <section class="panel moonsheet-panel reveal" aria-label="Airdrop moonsheet">
+        <div class="panel-heading table-heading">
+          <div>
+            <span class="card-label">/ Moonsheet</span>
+            <h2>Airdrop estimate</h2>
+          </div>
+          <div class="sync-status">
+            <span class="pulse-dot" aria-hidden="true"></span>
+            <span id="projectionStatus">Waiting for live data</span>
+          </div>
+        </div>
+
+        <div class="moonsheet-grid">
+          <article>
+            <small>Your current points</small>
+            <strong id="moonCurrentPoints">-</strong>
+          </article>
+          <article>
+            <small>Total Saturn points</small>
+            <strong id="moonTotalPoints">-</strong>
+          </article>
+          <article>
+            <small>Your point share</small>
+            <strong id="moonShare">-</strong>
+          </article>
+          <article>
+            <small>Snapshot TVL Assumption</small>
+            <strong id="moonPoolValue">$500M</strong>
+          </article>
+          <article>
+            <small>Projected farm points</small>
+            <strong id="moonProjectedFarm">-</strong>
+          </article>
+          <article>
+            <small>Projected total points</small>
+            <strong id="moonProjectedTotal">-</strong>
+          </article>
+          <article>
+            <small>Days to snapshot</small>
+            <strong id="moonDays">-</strong>
+          </article>
+          <article class="moonsheet-highlight">
+            <small>Base airdrop value</small>
+            <strong id="moonEstimatedValue">-</strong>
+          </article>
+        </div>
+
+        <div class="scenario-focus" id="scenarioFocus" aria-live="polite">
+          <span id="scenarioFocusCase">Base case</span>
+          <strong id="scenarioFocusValue">-</strong>
+          <small id="scenarioFocusMeta"></small>
+        </div>
+
+        <div class="scenario-picker">
+          <label for="fdvScenarioSelect">
+            <span>FDV case</span>
+            <select id="fdvScenarioSelect" aria-label="Select FDV case">
+              <option>Loading scenarios...</option>
+            </select>
+          </label>
+        </div>
+
+        <details class="scenario-disclosure">
+          <summary>
+            <span>FDV ladder</span>
+            <strong>All cases</strong>
+          </summary>
+          <div class="scenario-table-wrap">
+            <table class="scenario-table">
+              <thead>
+                <tr>
+                  <th>Case</th>
+                  <th>TVL Basis</th>
+                  <th>FDV</th>
+                  <th>Airdrop Pool</th>
+                  <th>Your Est. Value</th>
+                </tr>
+              </thead>
+              <tbody id="fdvScenarioRows">
+                <tr class="empty-row">
+                  <td colspan="5">Loading FDV scenarios...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <p class="moonsheet-note" id="projectionNote">
+          Projection uses a linear pace assumption because the public API exposes
+          cumulative points, not a guaranteed future emission schedule.
+        </p>
+      </section>
+
+      <section class="content-grid single-column">
+        <article class="panel points-panel reveal">
+          <div class="panel-heading">
+            <div>
+              <span class="card-label">/ Allocation</span>
+              <h2>Wallet contribution</h2>
+            </div>
+            <div class="sync-status">
+              <span class="pulse-dot" aria-hidden="true"></span>
+              <span id="farmSyncStatus">Loading public data</span>
+            </div>
+          </div>
+
+          <div class="points-total farm-points-total">
+            <span>Total Saturn Points</span>
+            <strong id="farmTotalLarge">0.0</strong>
+          </div>
+
+          <div class="allocation-list" id="allocationList" aria-label="Wallet point allocation">
+            <div class="loading-card">Save wallet addresses above to start tracking.</div>
+          </div>
+
+          <div class="mini-stats">
+            <span>
+              <small>Average Wallet</small>
+              <strong id="averageWalletPoints">-</strong>
+            </span>
+            <span>
+              <small>Pending Points</small>
+              <strong id="pendingFarmPoints">-</strong>
+            </span>
+            <span>
+              <small>Last Refresh</small>
+              <strong id="lastRefresh">-</strong>
+            </span>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel table-panel reveal">
+        <div class="panel-heading table-heading">
+          <div>
+            <span class="card-label">/ Wallets</span>
+            <h2>Saved wallet point table</h2>
+          </div>
+          <button class="ghost-btn compact-action" id="copyCsv" type="button">
+            Copy CSV
+          </button>
+        </div>
+
+        <div class="responsive-table farm-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Wallet</th>
+                <th>Saturn Points</th>
+                <th>Confirmed</th>
+                <th>Pending</th>
+                <th>Share</th>
+                <th>Rank</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="farmRows">
+              <tr class="empty-row">
+                <td colspan="7">Save wallet addresses above to load data.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-shell footer">
+      <span>/ Source: public Merkl reward data used by Saturn</span>
+      <span>Saved-wallet farm tracker</span>
+    </footer>
+
+    <script src="analysis.js" defer></script>
+  </body>
+</html>
