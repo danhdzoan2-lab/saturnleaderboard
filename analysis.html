@@ -8,7 +8,23 @@
       name="description"
       content="Track Saturn points across saved wallets using public Merkl point data."
     />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=20260531-farm-sync" />
+    <style>
+      .farm-table th:nth-child(n + 3),
+      .farm-table td:nth-child(n + 3) {
+        display: none !important;
+      }
+
+      .scenario-table th:nth-child(3),
+      .scenario-table td:nth-child(3) {
+        display: table-cell !important;
+      }
+
+      .scenario-table th:nth-child(4),
+      .scenario-table td:nth-child(4) {
+        display: none !important;
+      }
+    </style>
   </head>
   <body>
     <div class="noise" aria-hidden="true"></div>
@@ -300,6 +316,6 @@
       <span>Saved-wallet farm tracker</span>
     </footer>
 
-    <script src="analysis.js" defer></script>
+    <script src="analysis.js?v=20260531-farm-sync" defer></script>
   </body>
 </html>
