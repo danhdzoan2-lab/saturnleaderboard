@@ -160,33 +160,72 @@
         text-transform: uppercase;
       }
 
-      #leaderboard table {
+      #leaderboard .table-toolbar {
+        display: grid !important;
+        grid-template-columns: minmax(260px, 420px) 1fr;
+        align-items: end;
+        gap: 18px;
         width: 100%;
+      }
+
+      #leaderboard .search-box {
+        width: 100%;
+      }
+
+      #leaderboard .sync-status {
+        justify-self: end;
+        align-self: end;
+        padding-bottom: 14px;
+        white-space: nowrap;
+      }
+
+      #leaderboard table {
+        width: 100% !important;
         min-width: 760px;
         table-layout: fixed;
       }
 
-      #leaderboard col {
-        width: 25%;
+      #leaderboard col:nth-child(1) {
+        width: 12% !important;
+      }
+
+      #leaderboard col:nth-child(2) {
+        width: 42% !important;
+      }
+
+      #leaderboard col:nth-child(3) {
+        width: 30% !important;
+      }
+
+      #leaderboard col:nth-child(4) {
+        width: 16% !important;
       }
 
       #leaderboard th,
       #leaderboard td {
         display: table-cell !important;
-        width: 25% !important;
-        text-align: center;
+        width: auto !important;
+        vertical-align: middle;
+      }
+
+      #leaderboard th:nth-child(1),
+      #leaderboard td:nth-child(1) {
+        text-align: center !important;
       }
 
       #leaderboard th:nth-child(2),
       #leaderboard td:nth-child(2) {
-        text-align: left;
+        text-align: left !important;
       }
 
       #leaderboard th:nth-child(3),
-      #leaderboard td:nth-child(3),
+      #leaderboard td:nth-child(3) {
+        text-align: right !important;
+      }
+
       #leaderboard th:nth-child(4),
       #leaderboard td:nth-child(4) {
-        text-align: right;
+        text-align: center !important;
       }
 
       #leaderboard th:nth-child(n + 5),
@@ -201,10 +240,15 @@
         font-size: 1.05rem;
       }
 
-      .leaderboard-wallet-link {
-        display: inline-flex;
+      #leaderboard .leaderboard-wallet-link {
+        display: inline-flex !important;
         flex-direction: column;
+        align-items: flex-start;
         gap: 3px;
+      }
+
+      #leaderboard .leaderboard-wallet-link small {
+        display: none !important;
       }
 
       .movement-pill {
@@ -235,6 +279,17 @@
 
       .movement-pill.neutral {
         color: var(--muted);
+      }
+
+      @media (max-width: 640px) {
+        #leaderboard .table-toolbar {
+          grid-template-columns: 1fr;
+        }
+
+        #leaderboard .sync-status {
+          justify-self: start;
+          padding-bottom: 0;
+        }
       }
 
       @media (max-width: 640px) {
