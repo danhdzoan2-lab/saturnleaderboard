@@ -94,6 +94,7 @@
       .wallet-summary strong{font-size:1.05rem}
       .wallet-summary span{display:block;overflow:hidden;color:var(--muted);font-family:var(--font-mono);font-size:.78rem;text-overflow:ellipsis;white-space:nowrap}
       .wallet-summary-actions{display:flex;flex:0 0 auto;gap:10px}
+      .allocation-row-header small:empty,.wallet-cell small:empty{display:none!important}
       .moonsheet-grid article{display:flex;flex-direction:column;justify-content:space-between}
       .moonsheet-grid small{min-height:2.25em}
       .moonsheet-grid strong{margin-top:12px}
@@ -103,6 +104,8 @@
       .scenario-picker label::after{content:"";right:18px;bottom:19px;width:8px;height:8px;border-right:2px solid var(--gold);border-bottom:2px solid var(--gold);transform:rotate(45deg)}
       .scenario-table{min-width:560px}
       .scenario-table th:nth-child(3),.scenario-table td:nth-child(3),.scenario-table th:nth-child(4),.scenario-table td:nth-child(4){display:none}
+      .assumptions-disclosure{margin-top:14px}
+      .assumptions-copy{margin:0;padding:0 16px 16px;color:var(--muted);font-weight:700;line-height:1.6}
       @media(max-width:640px){.wallet-summary{align-items:stretch;flex-direction:column}.wallet-summary-actions>*{flex:1}.moonsheet-grid small{min-height:0}}
     `;
     document.head.appendChild(style);
@@ -200,6 +203,55 @@
     );
   }
 
+  function patchNamedWalletRows() {
+    document.querySelectorAll(".allocation-row").forEach((row) => {
+      const strong = row.querySelector(".allocation-row-header strong");
+      const small = row.querySelector(".allocation-row-header small");
+      const addressLabel = small?.textContent.trim();
+
+      if (strong && addressLabel && /^Wallet\s+\d+$/i.test(strong.textContent.trim())) {
+        setTextIfChanged(strong, addressLabel);
+        setTextIfChanged(small, "");
+      }
+    });
+
+    document.querySelectorAll("#farmRows tr").forEach((row) => {
+      const strong = row.querySelector(".wallet-cell strong");
+      const small = row.querySelector(".wallet-cell small");
+      const address = small?.textContent.trim();
+
+      if (strong && address && /^Wallet\s+\d+$/i.test(strong.textContent.trim())) {
+        setTextIfChanged(strong, isWalletAddress(address) ? formatAddress(address) : address);
+        setTextIfChanged(small, "");
+      }
+    });
+  }
+
+  function patchAssumptionsDisclosure() {
+    const panel = document.querySelector(".moonsheet-panel");
+    const note = panel?.querySelector(".moonsheet-note");
+    if (!panel || !note) return;
+
+    let disclosure = panel.querySelector("#assumptionsDisclosure");
+    if (!disclosure) {
+      disclosure = document.createElement("details");
+      disclosure.className = "scenario-disclosure assumptions-disclosure";
+      disclosure.id = "assumptionsDisclosure";
+      disclosure.innerHTML = `
+        <summary>
+          <span>Assumptions</span>
+          <strong>Projection details</strong>
+        </summary>
+        <p class="assumptions-copy"></p>
+      `;
+      note.after(disclosure);
+    }
+
+    const copy = note.textContent.trim();
+    if (copy) setTextIfChanged(disclosure.querySelector(".assumptions-copy"), copy);
+    note.hidden = true;
+  }
+
   function polishStaticCopy() {
     setTextIfChanged(document.querySelector(".farm-hero .hero-grid h1"), "Analyze your Saturn farm");
     const copy = document.querySelector(".farm-hero .hero-copy");
@@ -225,6 +277,8 @@
     polishStaticCopy();
     polishScenarioTable();
     updateWalletSummary();
+    patchNamedWalletRows();
+    patchAssumptionsDisclosure();
     replaceText(".metric-card small", [[/^Base:\s*/i, "$500M FDV - "]]);
     replaceText(".moonsheet-highlight small", [[/^Base\s+airdrop/i, "$500M airdrop"]]);
 
