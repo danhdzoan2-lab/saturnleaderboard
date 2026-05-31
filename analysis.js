@@ -254,6 +254,7 @@
 
   function polishStaticCopy() {
     setTextIfChanged(document.querySelector(".farm-hero .hero-grid h1"), "Analyze your Saturn farm");
+    setTextIfChanged(document.querySelector(".farm-dashboard > .content-grid h2"), "Allocation");
     const copy = document.querySelector(".farm-hero .hero-copy");
     if (copy) {
       setTextIfChanged(
