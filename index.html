@@ -8,7 +8,188 @@
       name="description"
       content="A Saturn-inspired point dashboard that tracks public Saturn point data from Merkl."
     />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=20260531-dashboard-fix" />
+    <style>
+      .segmented {
+        display: inline-flex;
+        gap: 6px;
+        padding: 5px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.22);
+      }
+
+      .segment {
+        min-height: 38px;
+        border: 0;
+        border-radius: 999px;
+        padding: 0 14px;
+        color: var(--muted);
+        background: transparent;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        font-weight: 900;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .segment.active {
+        color: #fff7ef;
+        background: linear-gradient(135deg, var(--gold), #ff3f00);
+      }
+
+      .chart-summary,
+      .daily-distribution,
+      .mini-stats {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        gap: 12px;
+      }
+
+      .chart-summary {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        margin-top: 18px;
+      }
+
+      .daily-distribution {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        margin-top: 12px;
+      }
+
+      .mini-stats {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        margin-top: 16px;
+      }
+
+      .chart-summary span,
+      .daily-distribution span,
+      .mini-stats span {
+        display: block;
+        padding: 13px 14px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(0, 0, 0, 0.18);
+      }
+
+      .daily-distribution span {
+        border-color: rgba(255, 90, 20, 0.2);
+        background: rgba(255, 90, 20, 0.06);
+      }
+
+      .chart-summary small,
+      .daily-distribution small,
+      .mini-stats small {
+        display: block;
+        color: var(--muted);
+        font-family: var(--font-mono);
+        font-size: 0.68rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .chart-summary strong,
+      .daily-distribution strong,
+      .mini-stats strong {
+        display: block;
+        margin-top: 7px;
+        font-family: var(--font-mono);
+      }
+
+      .daily-distribution strong {
+        color: var(--gold);
+      }
+
+      .chart-wrap {
+        position: relative;
+        z-index: 1;
+        overflow: hidden;
+      }
+
+      .line-chart {
+        display: block;
+        width: 100%;
+        min-height: 260px;
+      }
+
+      .grid-lines path {
+        stroke: rgba(255, 238, 210, 0.09);
+        stroke-width: 1;
+      }
+
+      .line-chart .chart-area {
+        fill: url("#chartFill") !important;
+      }
+
+      .line-chart .chart-line {
+        fill: none !important;
+        stroke: var(--gold) !important;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 5;
+        filter: drop-shadow(0 0 16px rgba(255, 90, 20, 0.36));
+      }
+
+      .chart-dot {
+        fill: #120c05;
+        stroke: var(--gold);
+        stroke-width: 4;
+      }
+
+      .chart-labels {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 0 16px 14px;
+        color: var(--muted);
+        font-family: var(--font-mono);
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      #leaderboard table {
+        width: 100%;
+        min-width: 760px;
+        table-layout: fixed;
+      }
+
+      #leaderboard col {
+        width: 25%;
+      }
+
+      #leaderboard th,
+      #leaderboard td {
+        display: table-cell !important;
+        width: 25% !important;
+        text-align: center;
+      }
+
+      #leaderboard th:nth-child(2),
+      #leaderboard td:nth-child(2) {
+        text-align: left;
+      }
+
+      #leaderboard th:nth-child(3),
+      #leaderboard td:nth-child(3),
+      #leaderboard th:nth-child(4),
+      #leaderboard td:nth-child(4) {
+        text-align: right;
+      }
+
+      #leaderboard th:nth-child(n + 5),
+      #leaderboard td:nth-child(n + 5) {
+        display: none !important;
+      }
+
+      @media (max-width: 640px) {
+        .chart-summary,
+        .daily-distribution,
+        .mini-stats {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
   </head>
   <body>
     <div class="noise" aria-hidden="true"></div>
@@ -41,10 +222,10 @@
         <div class="hero-grid">
           <div>
             <p class="kicker">Saturn Point Dashboard</p>
-            <h1>Track Saturn points.</h1>
+            <h1>Saturn points command center</h1>
             <p class="hero-copy">
-              Public point totals, leaderboard rows, and wallet lookup from the
-              same source used by Saturn.
+              Leaderboard totals, wallet lookup, and point distribution from
+              public Saturn data.
             </p>
             <div class="hero-actions">
               <button class="primary-btn" id="refreshData" type="button">
@@ -56,7 +237,7 @@
 
           <aside class="wallet-card" aria-live="polite">
             <span class="card-label">/ Wallet Lookup</span>
-            <h2 id="walletStatusTitle">Public wallet tracking</h2>
+            <h2 id="walletStatusTitle">Lookup wallet, rank, or points</h2>
             <p id="walletStatusText">
               Paste a wallet address to calculate public Saturn points and top-1000 rank.
             </p>
@@ -87,9 +268,9 @@
         </article>
 
         <article class="metric-card reveal">
-          <span class="metric-label">Refresh Cadence</span>
-          <strong>60s</strong>
-          <small>Matches Saturn app cache interval</small>
+          <span class="metric-label">Daily Distributed</span>
+          <strong id="dailyDistributedMetric">Tracking</strong>
+          <small id="dailyDistributedCaption">Collecting local baseline</small>
         </article>
 
         <article class="metric-card reveal">
@@ -184,8 +365,8 @@
               <desc id="chartDesc">A line chart showing public Saturn leaderboard point distribution.</desc>
               <defs>
                 <linearGradient id="chartFill" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stop-color="#fbcc78" stop-opacity="0.42" />
-                  <stop offset="100%" stop-color="#fbcc78" stop-opacity="0" />
+                  <stop offset="0%" stop-color="#ff5a14" stop-opacity="0.42" />
+                  <stop offset="100%" stop-color="#ff5a14" stop-opacity="0" />
                 </linearGradient>
               </defs>
               <g class="grid-lines" aria-hidden="true">
@@ -195,8 +376,8 @@
                 <path d="M40 180H620" />
                 <path d="M40 230H620" />
               </g>
-              <path id="chartArea" class="chart-area" d="" />
-              <path id="chartLine" class="chart-line" d="" />
+              <path id="chartArea" class="chart-area" d="" style="fill: url(#chartFill)" />
+              <path id="chartLine" class="chart-line" d="" style="fill: none" />
               <g id="chartDots"></g>
             </svg>
             <div class="chart-labels">
@@ -250,13 +431,18 @@
         <div class="table-view active" id="leaderboardView">
           <div class="responsive-table">
             <table>
+              <colgroup>
+                <col />
+                <col />
+                <col />
+                <col />
+              </colgroup>
               <thead>
                 <tr>
                   <th>Rank</th>
                   <th>Wallet</th>
                   <th>Points</th>
-                  <th>TVL</th>
-                  <th>Velocity</th>
+                  <th>Movement</th>
                 </tr>
               </thead>
               <tbody id="leaderboardRows"></tbody>
@@ -271,6 +457,6 @@
       <span>Read-only point tracker</span>
     </footer>
 
-    <script src="app.js" defer></script>
+    <script src="app.js?v=20260531-dashboard-fix" defer></script>
   </body>
 </html>
