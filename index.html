@@ -106,6 +106,14 @@
         margin-top: 18px !important;
       }
 
+      #portfolio > .hero-panel.no-wallet-lookup .hero-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+      }
+
+      #portfolio > .hero-panel.no-wallet-lookup .hero-copy {
+        max-width: 760px;
+      }
+
       #portfolio > .hero-panel .hero-grid {
         grid-template-columns: minmax(0, 1fr) minmax(560px, 0.88fr) !important;
       }
@@ -134,6 +142,10 @@
 
       #portfolio .wallet-address {
         margin-top: 14px;
+      }
+
+      #portfolio > .metrics-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
       #portfolio > .content-grid .points-panel > .panel-heading {
@@ -500,6 +512,10 @@
         #portfolio > .hero-panel .wallet-card {
           min-width: 0;
         }
+
+        #portfolio > .metrics-grid {
+          grid-template-columns: 1fr;
+        }
       }
 
       @media (max-width: 640px) {
@@ -554,15 +570,14 @@
     </header>
 
     <main class="site-shell dashboard" id="portfolio">
-      <section class="hero-panel reveal">
+      <section class="hero-panel reveal no-wallet-lookup">
         <div class="epoch-pill">/01 Point Dashboard - Epoch 1</div>
         <div class="hero-grid">
           <div>
             <p class="kicker">Saturn Point Dashboard</p>
             <h1>Saturn points command center</h1>
             <p class="hero-copy">
-              Leaderboard totals, wallet lookup, and point distribution from
-              public Saturn data.
+              Leaderboard totals, point distribution, and daily snapshots from public Saturn data.
             </p>
             <div class="hero-actions">
               <button class="primary-btn" id="refreshData" type="button">
@@ -572,7 +587,7 @@
             </div>
           </div>
 
-          <aside class="wallet-card" aria-live="polite">
+          <aside class="wallet-card" aria-live="polite" hidden>
             <span class="card-label">/ Wallet Lookup</span>
             <h2 id="walletStatusTitle">Lookup wallet, rank, or points</h2>
             <p id="walletStatusText">
@@ -616,7 +631,7 @@
           <small id="pointsUpdated">Public Merkl data</small>
         </article>
 
-        <article class="metric-card reveal highlighted">
+        <article class="metric-card reveal highlighted" hidden>
           <span class="metric-label">Your Rank</span>
           <strong id="rankMetric">—</strong>
           <small id="rankCaption">Enter wallet to calculate</small>
