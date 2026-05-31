@@ -1,5 +1,6 @@
 (() => {
   const NativeNumberFormat = Intl.NumberFormat;
+  const WALLET_STORAGE_KEY = "saturn:farm-wallets:v1";
   const script = document.createElement("script");
   let polishing = false;
 
@@ -41,12 +42,58 @@
     });
   }
 
+  function isWalletAddress(value) {
+    return /^0x[a-fA-F0-9]{40}$/.test(value.trim());
+  }
+
+  function formatAddress(address) {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  }
+
+  function readSavedWallets() {
+    try {
+      const rows = JSON.parse(localStorage.getItem(WALLET_STORAGE_KEY) || "[]");
+      if (!Array.isArray(rows)) return [];
+
+      return rows
+        .map((row) => (typeof row === "string" ? row : row?.address))
+        .filter((address) => typeof address === "string" && isWalletAddress(address));
+    } catch {
+      return [];
+    }
+  }
+
+  async function copyText(text) {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.left = "-9999px";
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    document.body.removeChild(textarea);
+  }
+
   function injectAirdropStyles() {
     if (document.querySelector("#airdrop-polish")) return;
 
     const style = document.createElement("style");
     style.id = "airdrop-polish";
     style.textContent = `
+      .wallet-manager-card.is-collapsed > p{display:none}
+      .wallet-summary{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:24px;padding:15px;border:1px solid var(--line);border-radius:18px;background:rgba(0,0,0,.18)}
+      .wallet-summary[hidden]{display:none!important}
+      .wallet-summary div:first-child{display:grid;gap:5px;min-width:0}
+      .wallet-summary small{color:var(--muted);font-family:var(--font-mono);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase}
+      .wallet-summary strong{font-size:1.05rem}
+      .wallet-summary span{display:block;overflow:hidden;color:var(--muted);font-family:var(--font-mono);font-size:.78rem;text-overflow:ellipsis;white-space:nowrap}
+      .wallet-summary-actions{display:flex;flex:0 0 auto;gap:10px}
       .moonsheet-grid article{display:flex;flex-direction:column;justify-content:space-between}
       .moonsheet-grid small{min-height:2.25em}
       .moonsheet-grid strong{margin-top:12px}
@@ -56,9 +103,101 @@
       .scenario-picker label::after{content:"";right:18px;bottom:19px;width:8px;height:8px;border-right:2px solid var(--gold);border-bottom:2px solid var(--gold);transform:rotate(45deg)}
       .scenario-table{min-width:560px}
       .scenario-table th:nth-child(3),.scenario-table td:nth-child(3),.scenario-table th:nth-child(4),.scenario-table td:nth-child(4){display:none}
-      @media(max-width:640px){.moonsheet-grid small{min-height:0}}
+      @media(max-width:640px){.wallet-summary{align-items:stretch;flex-direction:column}.wallet-summary-actions>*{flex:1}.moonsheet-grid small{min-height:0}}
     `;
     document.head.appendChild(style);
+  }
+
+  function ensureWalletSummary() {
+    const card = document.querySelector(".wallet-manager-card");
+    const form = document.querySelector("#walletManagerForm");
+    if (!card || !form) return null;
+
+    let summary = document.querySelector("#walletSummary");
+    if (!summary) {
+      summary = document.createElement("div");
+      summary.className = "wallet-summary";
+      summary.id = "walletSummary";
+      summary.hidden = true;
+      summary.innerHTML = `
+        <div>
+          <small>Wallets saved</small>
+          <strong id="walletSummaryCount">No wallets saved</strong>
+          <span id="walletSummaryPreview">Add wallets to start tracking.</span>
+        </div>
+        <div class="wallet-summary-actions">
+          <button class="ghost-btn compact-action" id="copyWalletsCompact" type="button">Copy</button>
+          <button class="ghost-btn compact-action" id="editWallets" type="button">Edit wallets</button>
+        </div>
+      `;
+      form.parentNode.insertBefore(summary, form);
+    }
+
+    const copyButton = summary.querySelector("#copyWalletsCompact");
+    const editButton = summary.querySelector("#editWallets");
+
+    if (copyButton && !copyButton.dataset.bound) {
+      copyButton.dataset.bound = "true";
+      copyButton.addEventListener("click", async () => {
+        const original = copyButton.textContent;
+        const wallets = readSavedWallets();
+        await copyText(wallets.join("\n"));
+        copyButton.textContent = "Copied";
+        setTimeout(() => {
+          copyButton.textContent = original;
+        }, 1200);
+      });
+    }
+
+    if (editButton && !editButton.dataset.bound) {
+      editButton.dataset.bound = "true";
+      editButton.addEventListener("click", () => {
+        card.dataset.editing = "true";
+        updateWalletSummary();
+        document.querySelector("#walletListInput")?.focus();
+      });
+    }
+
+    if (!form.dataset.summaryBound) {
+      form.dataset.summaryBound = "true";
+      form.addEventListener("submit", () => {
+        card.dataset.editing = "false";
+        setTimeout(updateWalletSummary, 80);
+      });
+      document.querySelector("#clearWallets")?.addEventListener("click", () => {
+        card.dataset.editing = "true";
+        setTimeout(updateWalletSummary, 80);
+      });
+    }
+
+    return summary;
+  }
+
+  function updateWalletSummary() {
+    const card = document.querySelector(".wallet-manager-card");
+    const form = document.querySelector("#walletManagerForm");
+    const summary = ensureWalletSummary();
+    if (!card || !form || !summary) return;
+
+    const wallets = readSavedWallets();
+    const hasWallets = wallets.length > 0;
+    const editing = card.dataset.editing === "true" || !hasWallets;
+    const collapsed = hasWallets && !editing;
+    const preview = wallets.slice(0, 3).map(formatAddress).join("   ");
+    const hiddenCount = Math.max(0, wallets.length - 3);
+
+    card.classList.toggle("is-collapsed", collapsed);
+    summary.hidden = !collapsed;
+    form.hidden = collapsed;
+
+    setTextIfChanged(
+      summary.querySelector("#walletSummaryCount"),
+      `${wallets.length} wallet${wallets.length === 1 ? "" : "s"} saved`,
+    );
+    setTextIfChanged(
+      summary.querySelector("#walletSummaryPreview"),
+      `${preview}${hiddenCount > 0 ? `   +${hiddenCount} more` : ""}` || "Add wallets to start tracking.",
+    );
   }
 
   function polishStaticCopy() {
@@ -85,6 +224,7 @@
     injectAirdropStyles();
     polishStaticCopy();
     polishScenarioTable();
+    updateWalletSummary();
     replaceText(".metric-card small", [[/^Base:\s*/i, "$500M FDV - "]]);
     replaceText(".moonsheet-highlight small", [[/^Base\s+airdrop/i, "$500M airdrop"]]);
 
