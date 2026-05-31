@@ -8,8 +8,23 @@
       name="description"
       content="Track Saturn points across saved wallets using public Merkl point data."
     />
-    <link rel="stylesheet" href="styles.css?v=20260531-farm-sync" />
+    <link rel="stylesheet" href="styles.css?v=20260531-wallet-collapse" />
     <style>
+      [hidden] {
+        display: none !important;
+      }
+
+      .metric-card strong,
+      .points-total strong,
+      .moonsheet-grid strong,
+      .scenario-focus strong {
+        letter-spacing: -0.025em !important;
+      }
+
+      .moonsheet-grid strong {
+        letter-spacing: -0.02em !important;
+      }
+
       .scenario-table th:nth-child(3),
       .scenario-table td:nth-child(3) {
         display: table-cell !important;
@@ -311,6 +326,40 @@
       <span>Saved-wallet farm tracker</span>
     </footer>
 
-    <script src="analysis.js?v=20260531-farm-sync" defer></script>
+    <script src="analysis.js?v=20260531-wallet-collapse" defer></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const form = document.querySelector("#walletManagerForm");
+        const input = document.querySelector("#walletListInput");
+        const card = document.querySelector(".wallet-manager-card");
+        const summary = document.querySelector("#walletSummary");
+        const count = document.querySelector("#walletSummaryCount");
+        const preview = document.querySelector("#walletSummaryPreview");
+
+        form?.addEventListener(
+          "submit",
+          () => {
+            const matches = input.value.match(/0x[a-fA-F0-9]{40}/g) ?? [];
+            const wallets = [...new Map(matches.map((address) => [address.toLowerCase(), address])).values()];
+
+            if (wallets.length === 0) return;
+
+            requestAnimationFrame(() => {
+              const previewWallets = wallets
+                .slice(0, 3)
+                .map((address) => `${address.slice(0, 6)}...${address.slice(-4)}`);
+              const hiddenCount = wallets.length - previewWallets.length;
+
+              card.classList.add("is-collapsed");
+              form.hidden = true;
+              summary.hidden = false;
+              count.textContent = `${wallets.length.toLocaleString("en-US")} wallet${wallets.length === 1 ? "" : "s"} saved`;
+              preview.textContent = `${previewWallets.join("   ")}${hiddenCount > 0 ? `   +${hiddenCount} more` : ""}`;
+            });
+          },
+          true,
+        );
+      });
+    </script>
   </body>
 </html>
