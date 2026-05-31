@@ -116,6 +116,7 @@
 
       #portfolio .wallet-lookup div {
         grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
         width: 100%;
       }
 
@@ -124,7 +125,15 @@
       }
 
       #portfolio .wallet-lookup button {
-        width: 100%;
+        justify-self: start;
+        width: auto;
+        min-width: 112px;
+        min-height: 38px;
+        padding-inline: 22px;
+      }
+
+      #portfolio .wallet-address {
+        margin-top: 14px;
       }
 
       #portfolio > .content-grid .points-panel > .panel-heading {
