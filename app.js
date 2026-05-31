@@ -48,8 +48,10 @@
     style.id = "snapshotOverlayStyles";
     style.textContent = `
       .header-stats strong { font-size: 1.04rem; font-weight: 950; }
-      #leaderboard table { min-width: 760px; table-layout: fixed; }
+      #leaderboard table { width: 100%; min-width: 760px; table-layout: fixed; }
       #leaderboard col { width: 25%; }
+      #leaderboard table th:nth-child(4), #leaderboard table td:nth-child(4) { display: table-cell !important; }
+      #leaderboard table th:nth-child(5), #leaderboard table td:nth-child(5) { display: none !important; }
       #leaderboard th:nth-child(1), #leaderboard td:nth-child(1) { text-align: center; }
       #leaderboard th:nth-child(3), #leaderboard td:nth-child(3),
       #leaderboard th:nth-child(4), #leaderboard td:nth-child(4) { text-align: right; }
@@ -135,12 +137,12 @@
   function movementFor(address, currentRank) {
     const previousRank = movementRanks.get(address.toLowerCase());
 
-    if (!movementDate) return { label: "—", className: "neutral" };
+    if (!movementDate) return { label: "-", className: "neutral" };
     if (!previousRank) return { label: "New", className: "up" };
 
     const movement = previousRank - currentRank;
-    if (movement > 0) return { label: `↑ ${formatNumber.format(movement)}`, className: "up" };
-    if (movement < 0) return { label: `↓ ${formatNumber.format(Math.abs(movement))}`, className: "down" };
+    if (movement > 0) return { label: `+${formatNumber.format(movement)}`, className: "up" };
+    if (movement < 0) return { label: `-${formatNumber.format(Math.abs(movement))}`, className: "down" };
     return { label: "0", className: "neutral" };
   }
 
@@ -157,7 +159,7 @@
       const link = row.querySelector("a.wallet-link");
       const address = addressFromLink(link);
       const rank = parseRank(cells[0]?.textContent || row.querySelector(".wallet-badge")?.textContent);
-      const points = cells[2]?.textContent.trim() || "—";
+      const points = cells[2]?.textContent.trim() || "-";
       const patchKey = `${movementDate || "none"}:${rank}:${address}:${points}`;
 
       if (!address || !rank || row.dataset.snapshotPatch === patchKey) return;
