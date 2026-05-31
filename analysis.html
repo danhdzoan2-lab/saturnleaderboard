@@ -164,6 +164,158 @@
           width: 100%;
         }
       }
+
+      @media (max-width: 640px) {
+        .farm-dashboard .moonsheet-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          gap: 10px;
+        }
+
+        .farm-dashboard .moonsheet-grid article {
+          min-height: 104px;
+          padding: 13px;
+        }
+
+        .farm-dashboard .moonsheet-grid small {
+          min-height: 0;
+          font-size: 0.66rem;
+          letter-spacing: 0.1em;
+        }
+
+        .farm-dashboard .moonsheet-grid strong {
+          margin-top: 10px;
+          font-size: clamp(1.25rem, 7vw, 1.7rem);
+          line-height: 1;
+        }
+
+        .farm-dashboard .scenario-focus {
+          grid-template-columns: 1fr;
+          gap: 9px;
+          padding: 16px;
+        }
+
+        .farm-dashboard .scenario-focus strong {
+          grid-row: auto;
+          font-size: clamp(2.6rem, 15vw, 4.2rem);
+        }
+
+        .farm-dashboard .wallet-manager-card {
+          padding: 18px;
+        }
+
+        .farm-dashboard .wallet-summary {
+          gap: 12px;
+          margin-top: 14px;
+          padding: 12px;
+        }
+
+        .farm-dashboard .wallet-summary span {
+          white-space: nowrap;
+        }
+
+        .farm-dashboard .wallet-summary-actions {
+          width: 100%;
+        }
+
+        .farm-dashboard .wallet-summary-actions > * {
+          min-height: 42px;
+        }
+
+        .farm-dashboard .scenario-table {
+          min-width: 0;
+        }
+
+        .farm-dashboard .scenario-table th,
+        .farm-dashboard .scenario-table td {
+          padding: 12px 10px;
+          font-size: 0.86rem;
+        }
+
+        .farm-table.responsive-table {
+          overflow: visible;
+          border: 0;
+          border-radius: 0;
+          background: transparent;
+        }
+
+        .farm-table table {
+          display: block;
+          min-width: 0 !important;
+          border: 0;
+        }
+
+        .farm-table thead {
+          display: none;
+        }
+
+        .farm-table tbody {
+          display: grid;
+          gap: 12px;
+        }
+
+        .farm-table tbody tr {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 11px 14px;
+          padding: 14px;
+          border: 1px solid var(--line);
+          border-radius: 18px;
+          background:
+            radial-gradient(circle at 15% 0%, rgba(255, 90, 20, 0.1), transparent 48%),
+            rgba(0, 0, 0, 0.18);
+        }
+
+        .farm-table tbody tr.empty-row {
+          display: block;
+        }
+
+        .farm-table td {
+          display: block;
+          width: auto !important;
+          padding: 0 !important;
+          border: 0 !important;
+          text-align: left !important;
+        }
+
+        .farm-table td:first-child {
+          grid-column: 1 / -1;
+        }
+
+        .farm-table td:nth-child(2)::before,
+        .farm-table td:nth-child(3)::before,
+        .farm-table td:nth-child(4)::before {
+          display: block;
+          margin-bottom: 4px;
+          color: var(--muted);
+          font-family: var(--font-display);
+          font-size: 0.66rem;
+          font-weight: 950;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+        }
+
+        .farm-table td:nth-child(2)::before {
+          content: "Points";
+        }
+
+        .farm-table td:nth-child(3)::before {
+          content: "Share";
+        }
+
+        .farm-table td:nth-child(4)::before {
+          content: "Rank";
+        }
+
+        .farm-table .wallet-cell {
+          gap: 10px;
+        }
+
+        .farm-table .wallet-badge {
+          width: 42px;
+          height: 42px;
+          border-radius: 14px;
+        }
+      }
     </style>
   </head>
   <body>

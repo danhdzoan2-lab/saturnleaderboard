@@ -541,7 +541,139 @@
         .chart-summary,
         .daily-distribution,
         .mini-stats {
-          grid-template-columns: 1fr;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .chart-summary span:first-child,
+        .mini-stats span:last-child {
+          grid-column: 1 / -1;
+        }
+
+        .chart-summary span,
+        .daily-distribution span,
+        .mini-stats span {
+          padding: 12px;
+        }
+
+        .daily-distribution strong {
+          font-size: clamp(1.35rem, 7vw, 1.8rem);
+        }
+
+        #leaderboard .responsive-table {
+          overflow: visible;
+          border: 0;
+          border-radius: 0;
+          background: transparent;
+        }
+
+        #leaderboard table {
+          display: block !important;
+          min-width: 0 !important;
+          border: 0 !important;
+          table-layout: auto !important;
+        }
+
+        #leaderboard colgroup,
+        #leaderboard thead {
+          display: none !important;
+        }
+
+        #leaderboard tbody {
+          display: grid;
+          gap: 12px;
+        }
+
+        #leaderboard tbody tr {
+          display: grid !important;
+          grid-template-columns: auto minmax(0, 1fr);
+          grid-template-areas:
+            "rank wallet"
+            "rank points"
+            "movement movement";
+          gap: 8px 14px;
+          align-items: center;
+          padding: 14px;
+          border: 1px solid var(--line);
+          border-radius: 18px;
+          background:
+            radial-gradient(circle at 18% 0%, rgba(255, 90, 20, 0.1), transparent 48%),
+            rgba(0, 0, 0, 0.18);
+        }
+
+        #leaderboard tbody tr.empty-row {
+          display: block !important;
+        }
+
+        #leaderboard th,
+        #leaderboard td {
+          display: block !important;
+          width: auto !important;
+          padding: 0 !important;
+          border: 0 !important;
+          text-align: left !important;
+        }
+
+        #leaderboard td:nth-child(1) {
+          grid-area: rank;
+        }
+
+        #leaderboard td:nth-child(2) {
+          grid-area: wallet;
+        }
+
+        #leaderboard td:nth-child(3) {
+          grid-area: points;
+        }
+
+        #leaderboard td:nth-child(4) {
+          grid-area: movement;
+        }
+
+        #leaderboard td:nth-child(3)::before,
+        #leaderboard td:nth-child(4)::before {
+          display: block;
+          margin-bottom: 4px;
+          color: var(--muted);
+          font-family: var(--font-display);
+          font-size: 0.68rem;
+          font-weight: 950;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+        }
+
+        #leaderboard td:nth-child(3)::before {
+          content: "Points";
+        }
+
+        #leaderboard td:nth-child(4)::before {
+          content: "Movement";
+        }
+
+        #leaderboard .leaderboard-rank-badge {
+          width: 50px;
+          height: 50px;
+          margin: 0;
+          border-radius: 16px;
+          font-size: 1.1rem;
+        }
+
+        #leaderboard .leaderboard-wallet-link {
+          align-items: flex-start;
+          max-width: 100%;
+        }
+
+        #leaderboard .leaderboard-wallet-link strong,
+        #leaderboard td:nth-child(3) {
+          font-size: 1.02rem;
+          font-weight: 950;
+          overflow-wrap: anywhere;
+        }
+
+        #leaderboard .movement-pill {
+          min-width: 0;
+          width: 100%;
+          justify-content: center;
+          padding-block: 9px;
         }
       }
     </style>
