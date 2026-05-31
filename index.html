@@ -98,21 +98,43 @@
       }
 
       #portfolio > .content-grid .points-panel > .panel-heading {
-        flex-direction: column;
-        align-items: flex-start !important;
-        gap: 10px;
+        flex-direction: row;
+        align-items: center !important;
+        justify-content: flex-start;
+        gap: 22px;
+      }
+
+      #portfolio > .content-grid .points-panel > .panel-heading .card-label {
+        margin-bottom: 0;
+        white-space: nowrap;
+      }
+
+      #portfolio > .content-grid .points-panel .segmented {
+        flex: 0 0 auto;
       }
 
       #portfolio > .content-grid .points-total {
         align-items: flex-start !important;
         flex-direction: column;
-        gap: 8px;
+        gap: 6px;
         justify-content: flex-start;
-        margin-top: 14px !important;
+        margin-top: 8px !important;
       }
 
       #portfolio > .content-grid .points-total strong {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 0.16em;
+        line-height: 0.82;
+        letter-spacing: -0.075em !important;
         text-align: left;
+      }
+
+      #portfolio > .content-grid .points-total .compact-unit {
+        display: inline-block;
+        margin-left: 0.06em;
+        font-size: 0.88em;
+        letter-spacing: 0.01em;
       }
 
       .chart-summary,
@@ -230,8 +252,16 @@
         grid-template-columns: minmax(260px, 420px) 1fr;
         align-items: end;
         gap: 18px;
-        margin: 8px 0 14px !important;
+        margin: 0 0 14px !important;
         width: 100%;
+      }
+
+      #leaderboard .panel-heading {
+        margin-bottom: 0 !important;
+      }
+
+      #leaderboard .card-label {
+        margin-bottom: 0;
       }
 
       #leaderboard .search-box {
@@ -279,6 +309,11 @@
         text-align: center !important;
       }
 
+      #leaderboard td:nth-child(1) {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+      }
+
       #leaderboard th:nth-child(2),
       #leaderboard td:nth-child(2) {
         text-align: center !important;
@@ -300,6 +335,8 @@
       }
 
       .leaderboard-rank-badge {
+        display: grid !important;
+        margin-inline: auto;
         width: 44px;
         height: 44px;
         border-radius: 14px;
@@ -348,6 +385,12 @@
       }
 
       @media (max-width: 640px) {
+        #portfolio > .content-grid .points-panel > .panel-heading {
+          align-items: flex-start !important;
+          flex-direction: column;
+          gap: 10px;
+        }
+
         #leaderboard .table-toolbar {
           grid-template-columns: 1fr;
         }
@@ -634,5 +677,32 @@
     </footer>
 
     <script src="app.js?v=20260531-dashboard-fix" defer></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const total = document.querySelector("#pointsTotal");
+        if (!total) return;
+
+        const renderCompactUnit = () => {
+          if (total.dataset.renderingCompact === "true") return;
+          const value = total.textContent.trim().replace(/\s+/g, "");
+          const match = value.match(/^([0-9.,]+)([KMBT])$/i);
+
+          if (!match) return;
+          if (total.dataset.compactValue === value && total.querySelector(".compact-unit")) return;
+
+          total.dataset.renderingCompact = "true";
+          total.innerHTML = `${match[1]}<span class="compact-unit">${match[2].toUpperCase()}</span>`;
+          total.dataset.compactValue = value;
+          total.dataset.renderingCompact = "false";
+        };
+
+        new MutationObserver(renderCompactUnit).observe(total, {
+          childList: true,
+          characterData: true,
+          subtree: true,
+        });
+        renderCompactUnit();
+      });
+    </script>
   </body>
 </html>
