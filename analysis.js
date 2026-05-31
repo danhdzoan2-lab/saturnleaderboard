@@ -1,336 +1,659 @@
-(() => {
-  const NativeNumberFormat = Intl.NumberFormat;
-  const WALLET_STORAGE_KEY = "saturn:farm-wallets:v1";
-  const script = document.createElement("script");
-  let polishing = false;
+const CHAIN_ID = 1;
+const SATURN_POINT_TOKEN = "0xD223bbdd0421E394C0df9dFfe568f1dADfFd6f85";
+const SATURN_POINT_TOKEN_LOWER = SATURN_POINT_TOKEN.toLowerCase();
+const EXCLUDED_ADDRESS = "0x80c6a512b548229226c0676d6fdbaff81d325990";
+const LEADERBOARD_PAGE_SIZE = 1000;
+const AIRDROP_PERCENT = 0.05;
+const SNAPSHOT_TVL_USD = 500_000_000;
+const BASE_FDV_USD = 500_000_000;
+const WALLET_STORAGE_KEY = "saturn:farm-wallets:v1";
+const FDV_SCENARIOS = Array.from({ length: 18 }, (_, index) => {
+  const fdv = 150_000_000 + index * 50_000_000;
 
-  function normalizeOptions(options) {
-    if (!options || typeof options !== "object") return options;
-    const next = { ...options };
+  return {
+    fdv,
+    name: formatScenarioFdv(fdv),
+  };
+});
+const SNAPSHOT_DATE = new Date("2026-08-08T00:00:00+07:00");
+const PROJECTION_START_DATE = new Date("2026-05-15T00:00:00+07:00");
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-    if (next.maximumFractionDigits === 3) {
-      next.maximumFractionDigits = 0;
+const urls = {
+  leaderboard: `https://api.merkl.xyz/v4/rewards/token/?chainId=${CHAIN_ID}&address=${SATURN_POINT_TOKEN}&items=${LEADERBOARD_PAGE_SIZE}`,
+  total: `https://api.merkl.xyz/v4/rewards/token/total?chainId=${CHAIN_ID}&address=${SATURN_POINT_TOKEN}`,
+  userRewards: (address) => `https://api.merkl.xyz/v4/users/${address}/rewards?chainId=${CHAIN_ID}`,
+  recipient: (address) =>
+    `https://api.merkl.xyz/v4/rewards/token/?chainId=${CHAIN_ID}&address=${SATURN_POINT_TOKEN}&recipient=${address}`,
+};
+
+const formatNumber = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 0,
+});
+
+const formatPoints = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 0,
+});
+
+const formatTotalPoints = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 2,
+});
+
+const formatCompact = new Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumFractionDigits: 2,
+});
+
+const formatPercent = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 2,
+});
+
+const formatUsd = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0,
+});
+
+const formatUsdCompact = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  notation: "compact",
+  maximumFractionDigits: 2,
+});
+
+const state = {
+  wallets: loadSavedWallets(),
+  editingWallets: false,
+  rows: [],
+  leaderboard: [],
+  total: 0,
+  totalPending: 0,
+  networkTotalPoints: 0,
+  lastUpdated: null,
+};
+
+function formatScenarioFdv(fdv) {
+  return fdv >= 1_000_000_000 ? `$${fdv / 1_000_000_000}B` : `$${fdv / 1_000_000}M`;
+}
+
+const elements = {
+  refreshFarm: document.querySelector("#refreshFarm"),
+  walletCountStat: document.querySelector("#walletCountStat"),
+  farmHeaderPoints: document.querySelector("#farmHeaderPoints"),
+  walletManagerForm: document.querySelector("#walletManagerForm"),
+  walletManagerCard: document.querySelector(".wallet-manager-card"),
+  walletSummary: document.querySelector("#walletSummary"),
+  walletSummaryCount: document.querySelector("#walletSummaryCount"),
+  walletSummaryPreview: document.querySelector("#walletSummaryPreview"),
+  walletListInput: document.querySelector("#walletListInput"),
+  walletListStatus: document.querySelector("#walletListStatus"),
+  copyWalletsCompact: document.querySelector("#copyWalletsCompact"),
+  editWallets: document.querySelector("#editWallets"),
+  copyWallets: document.querySelector("#copyWallets"),
+  clearWallets: document.querySelector("#clearWallets"),
+  totalFarmPoints: document.querySelector("#totalFarmPoints"),
+  pointShare: document.querySelector("#pointShare"),
+  networkTotalCaption: document.querySelector("#networkTotalCaption"),
+  moonsheetValue: document.querySelector("#moonsheetValue"),
+  projectedSnapshotPoints: document.querySelector("#projectedSnapshotPoints"),
+  projectionStatus: document.querySelector("#projectionStatus"),
+  moonCurrentPoints: document.querySelector("#moonCurrentPoints"),
+  moonTotalPoints: document.querySelector("#moonTotalPoints"),
+  moonShare: document.querySelector("#moonShare"),
+  moonPoolValue: document.querySelector("#moonPoolValue"),
+  moonProjectedFarm: document.querySelector("#moonProjectedFarm"),
+  moonProjectedTotal: document.querySelector("#moonProjectedTotal"),
+  moonDays: document.querySelector("#moonDays"),
+  moonEstimatedValue: document.querySelector("#moonEstimatedValue"),
+  scenarioFocus: document.querySelector("#scenarioFocus"),
+  scenarioFocusCase: document.querySelector("#scenarioFocusCase"),
+  scenarioFocusValue: document.querySelector("#scenarioFocusValue"),
+  scenarioFocusMeta: document.querySelector("#scenarioFocusMeta"),
+  fdvScenarioSelect: document.querySelector("#fdvScenarioSelect"),
+  fdvScenarioRows: document.querySelector("#fdvScenarioRows"),
+  projectionNote: document.querySelector("#projectionNote"),
+  farmSyncStatus: document.querySelector("#farmSyncStatus"),
+  farmTotalLarge: document.querySelector("#farmTotalLarge"),
+  allocationList: document.querySelector("#allocationList"),
+  averageWalletPoints: document.querySelector("#averageWalletPoints"),
+  pendingFarmPoints: document.querySelector("#pendingFarmPoints"),
+  lastRefresh: document.querySelector("#lastRefresh"),
+  farmRows: document.querySelector("#farmRows"),
+  copyCsv: document.querySelector("#copyCsv"),
+};
+
+function isWalletAddress(value) {
+  return /^0x[a-fA-F0-9]{40}$/.test(value.trim());
+}
+
+function formatAddress(address) {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+function formatWalletLabel(row) {
+  return formatAddress(row.address);
+}
+
+function parseWallets(input) {
+  const matches = input.match(/0x[a-fA-F0-9]{40}/g) ?? [];
+  const seen = new Set();
+  const wallets = [];
+
+  matches.forEach((address) => {
+    const key = address.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    wallets.push({ label: `Wallet ${wallets.length + 1}`, address });
+  });
+
+  return wallets;
+}
+
+function loadSavedWallets() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(WALLET_STORAGE_KEY) || "[]");
+    if (!Array.isArray(saved)) return [];
+
+    return saved
+      .map((row) => (typeof row === "string" ? row : row?.address))
+      .filter((address) => typeof address === "string" && isWalletAddress(address))
+      .filter((address, index, rows) => rows.findIndex((item) => item.toLowerCase() === address.toLowerCase()) === index)
+      .map((address, index) => ({ label: `Wallet ${index + 1}`, address }));
+  } catch {
+    return [];
+  }
+}
+
+function saveWallets(wallets) {
+  localStorage.setItem(WALLET_STORAGE_KEY, JSON.stringify(wallets.map((wallet) => wallet.address)));
+}
+
+function setWalletStatus(message) {
+  elements.walletListStatus.textContent = message;
+}
+
+function syncWalletInput() {
+  elements.walletListInput.value = state.wallets.map((wallet) => wallet.address).join("\n");
+}
+
+function renderWalletManager() {
+  const walletCount = state.wallets.length;
+  const collapsed = walletCount > 0 && !state.editingWallets;
+  const preview = state.wallets.slice(0, 3).map((wallet) => formatAddress(wallet.address));
+  const hiddenCount = walletCount - preview.length;
+
+  elements.walletManagerCard.classList.toggle("is-collapsed", collapsed);
+  elements.walletManagerForm.hidden = collapsed;
+  elements.walletSummary.hidden = !collapsed;
+
+  if (!collapsed) return;
+
+  elements.walletSummaryCount.textContent = `${formatNumber.format(walletCount)} wallet${walletCount === 1 ? "" : "s"} saved`;
+  elements.walletSummaryPreview.textContent = `${preview.join("   ")}${hiddenCount > 0 ? `   +${hiddenCount} more` : ""}`;
+}
+
+function unitsToNumber(rawValue) {
+  let value = typeof rawValue === "bigint" ? rawValue : BigInt(rawValue || 0);
+  const negative = value < 0n;
+  if (negative) value = -value;
+
+  const scale = 10n ** 18n;
+  const whole = value / scale;
+  const fraction = String(value % scale).padStart(18, "0").slice(0, 6);
+  const number = Number(`${whole}.${fraction}`);
+
+  return negative ? -number : number;
+}
+
+function pointsFromRow(row) {
+  return unitsToNumber(BigInt(row?.amount || 0) + BigInt(row?.pending || 0));
+}
+
+function totalAmount(row) {
+  return BigInt(row?.amount || 0);
+}
+
+async function fetchJson(url) {
+  const response = await fetch(url, { headers: { accept: "application/json" } });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} from ${new URL(url).hostname}`);
+  }
+  return response.json();
+}
+
+function fallbackCopy(text) {
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  document.body.removeChild(textarea);
+  return copied;
+}
+
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return true;
+  }
+
+  return fallbackCopy(text);
+}
+
+function getProjection() {
+  const now = new Date();
+  const elapsedDays = Math.max(1, (now.getTime() - PROJECTION_START_DATE.getTime()) / DAY_MS);
+  const daysToSnapshot = Math.max(0, (SNAPSHOT_DATE.getTime() - now.getTime()) / DAY_MS);
+  const factor = (elapsedDays + daysToSnapshot) / elapsedDays;
+  const pointShare = state.networkTotalPoints > 0 ? state.total / state.networkTotalPoints : 0;
+  const scenarios = FDV_SCENARIOS.map((scenario) => {
+    const airdropPool = scenario.fdv * AIRDROP_PERCENT;
+
+    return {
+      ...scenario,
+      airdropPool,
+      estimatedValue: pointShare * airdropPool,
+    };
+  });
+  const baseScenario = scenarios.find((scenario) => scenario.fdv === BASE_FDV_USD) ?? scenarios[0];
+
+  return {
+    elapsedDays,
+    daysToSnapshot,
+    factor,
+    pointShare,
+    scenarios,
+    baseScenario,
+    projectedFarmPoints: state.total * factor,
+    projectedNetworkPoints: state.networkTotalPoints * factor,
+  };
+}
+
+function parseLeaderboard(rows) {
+  if (!Array.isArray(rows)) return [];
+
+  return rows
+    .filter((row) => row.recipient && row.recipient.toLowerCase() !== EXCLUDED_ADDRESS)
+    .map((row) => ({
+      address: row.recipient,
+      points: pointsFromRow(row),
+    }))
+    .sort((a, b) => b.points - a.points)
+    .map((row, index) => ({ rank: index + 1, ...row }));
+}
+
+async function fetchWallet(wallet) {
+  let userRewardError = null;
+
+  try {
+    const userRewards = await fetchJson(urls.userRewards(wallet.address));
+    const rewards = userRewards?.[0]?.rewards ?? [];
+    const tokenReward = rewards.find((reward) => reward.token?.address?.toLowerCase() === SATURN_POINT_TOKEN_LOWER);
+
+    if (tokenReward) {
+      return {
+        ...wallet,
+        amount: unitsToNumber(tokenReward.amount),
+        pending: unitsToNumber(tokenReward.pending),
+        points: pointsFromRow(tokenReward),
+        source: "user-rewards",
+        ok: true,
+      };
     }
-
-    return next;
+  } catch (error) {
+    userRewardError = error;
   }
 
-  function PatchedNumberFormat(locales, options) {
-    return new NativeNumberFormat(locales, normalizeOptions(options));
+  try {
+    const recipientRows = await fetchJson(urls.recipient(wallet.address));
+    const row = recipientRows?.[0];
+
+    return {
+      ...wallet,
+      amount: row ? unitsToNumber(row.amount) : 0,
+      pending: row ? unitsToNumber(row.pending) : 0,
+      points: row ? pointsFromRow(row) : 0,
+      source: "recipient",
+      ok: true,
+    };
+  } catch (error) {
+    return {
+      ...wallet,
+      amount: 0,
+      pending: 0,
+      points: 0,
+      source: "error",
+      ok: false,
+      error: userRewardError?.message || error.message,
+    };
   }
+}
 
-  function restoreNumberFormat() {
-    Intl.NumberFormat = NativeNumberFormat;
-  }
-
-  function setTextIfChanged(element, nextText) {
-    if (element && element.textContent !== nextText) {
-      element.textContent = nextText;
-    }
-  }
-
-  function replaceText(selector, replacements) {
-    document.querySelectorAll(selector).forEach((element) => {
-      const current = element.textContent;
-      let next = current;
-
-      replacements.forEach(([from, to]) => {
-        next = next.replace(from, to);
-      });
-
-      setTextIfChanged(element, next);
-    });
-  }
-
-  function isWalletAddress(value) {
-    return /^0x[a-fA-F0-9]{40}$/.test(value.trim());
-  }
-
-  function formatAddress(address) {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  }
-
-  function readSavedWallets() {
-    try {
-      const rows = JSON.parse(localStorage.getItem(WALLET_STORAGE_KEY) || "[]");
-      if (!Array.isArray(rows)) return [];
-
-      return rows
-        .map((row) => (typeof row === "string" ? row : row?.address))
-        .filter((address) => typeof address === "string" && isWalletAddress(address));
-    } catch {
-      return [];
-    }
-  }
-
-  async function copyText(text) {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-      return;
-    }
-
-    const textarea = document.createElement("textarea");
-    textarea.value = text;
-    textarea.setAttribute("readonly", "");
-    textarea.style.position = "fixed";
-    textarea.style.left = "-9999px";
-    document.body.appendChild(textarea);
-    textarea.select();
-    document.execCommand("copy");
-    document.body.removeChild(textarea);
-  }
-
-  function injectAirdropStyles() {
-    if (document.querySelector("#airdrop-polish")) return;
-
-    const style = document.createElement("style");
-    style.id = "airdrop-polish";
-    style.textContent = `
-      .wallet-manager-card.is-collapsed > p{display:none}
-      .wallet-summary{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:24px;padding:15px;border:1px solid var(--line);border-radius:18px;background:rgba(0,0,0,.18)}
-      .wallet-summary[hidden]{display:none!important}
-      .wallet-summary div:first-child{display:grid;gap:5px;min-width:0}
-      .wallet-summary small{color:var(--muted);font-family:var(--font-mono);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase}
-      .wallet-summary strong{font-size:1.05rem}
-      .wallet-summary span{display:block;overflow:hidden;color:var(--muted);font-family:var(--font-mono);font-size:.78rem;text-overflow:ellipsis;white-space:nowrap}
-      .wallet-summary-actions{display:flex;flex:0 0 auto;gap:10px}
-      .allocation-row-header small:empty,.wallet-cell small:empty{display:none!important}
-      .moonsheet-grid article{display:flex;flex-direction:column;justify-content:space-between}
-      .moonsheet-grid small{min-height:2.25em}
-      .moonsheet-grid strong{margin-top:12px}
-      .scenario-picker{margin-top:16px}
-      .scenario-picker label{gap:10px}
-      .scenario-picker select{box-shadow:inset 0 0 0 1px rgba(255,255,255,.025);padding:16px 48px 16px 16px}
-      .scenario-picker label::after{content:"";right:18px;bottom:19px;width:8px;height:8px;border-right:2px solid var(--gold);border-bottom:2px solid var(--gold);transform:rotate(45deg)}
-      .scenario-table{min-width:560px}
-      .scenario-table th:nth-child(3),.scenario-table td:nth-child(3),.scenario-table th:nth-child(4),.scenario-table td:nth-child(4){display:none}
-      .assumptions-disclosure{margin-top:14px}
-      .assumptions-copy{margin:0;padding:0 16px 16px;color:var(--muted);font-weight:700;line-height:1.6}
-      @media(max-width:640px){.wallet-summary{align-items:stretch;flex-direction:column}.wallet-summary-actions>*{flex:1}.moonsheet-grid small{min-height:0}}
-    `;
-    document.head.appendChild(style);
-  }
-
-  function ensureWalletSummary() {
-    const card = document.querySelector(".wallet-manager-card");
-    const form = document.querySelector("#walletManagerForm");
-    if (!card || !form) return null;
-
-    let summary = document.querySelector("#walletSummary");
-    if (!summary) {
-      summary = document.createElement("div");
-      summary.className = "wallet-summary";
-      summary.id = "walletSummary";
-      summary.hidden = true;
-      summary.innerHTML = `
-        <div>
-          <small>Wallets saved</small>
-          <strong id="walletSummaryCount">No wallets saved</strong>
-          <span id="walletSummaryPreview">Add wallets to start tracking.</span>
-        </div>
-        <div class="wallet-summary-actions">
-          <button class="ghost-btn compact-action" id="copyWalletsCompact" type="button">Copy</button>
-          <button class="ghost-btn compact-action" id="editWallets" type="button">Edit wallets</button>
-        </div>
-      `;
-      form.parentNode.insertBefore(summary, form);
-    }
-
-    const copyButton = summary.querySelector("#copyWalletsCompact");
-    const editButton = summary.querySelector("#editWallets");
-
-    if (copyButton && !copyButton.dataset.bound) {
-      copyButton.dataset.bound = "true";
-      copyButton.addEventListener("click", async () => {
-        const original = copyButton.textContent;
-        const wallets = readSavedWallets();
-        await copyText(wallets.join("\n"));
-        copyButton.textContent = "Copied";
-        setTimeout(() => {
-          copyButton.textContent = original;
-        }, 1200);
-      });
-    }
-
-    if (editButton && !editButton.dataset.bound) {
-      editButton.dataset.bound = "true";
-      editButton.addEventListener("click", () => {
-        card.dataset.editing = "true";
-        updateWalletSummary();
-        document.querySelector("#walletListInput")?.focus();
-      });
-    }
-
-    if (!form.dataset.summaryBound) {
-      form.dataset.summaryBound = "true";
-      form.addEventListener("submit", () => {
-        card.dataset.editing = "false";
-        setTimeout(updateWalletSummary, 80);
-      });
-      document.querySelector("#clearWallets")?.addEventListener("click", () => {
-        card.dataset.editing = "true";
-        setTimeout(updateWalletSummary, 80);
-      });
-    }
-
-    return summary;
-  }
-
-  function updateWalletSummary() {
-    const card = document.querySelector(".wallet-manager-card");
-    const form = document.querySelector("#walletManagerForm");
-    const summary = ensureWalletSummary();
-    if (!card || !form || !summary) return;
-
-    const wallets = readSavedWallets();
-    const hasWallets = wallets.length > 0;
-    const editing = card.dataset.editing === "true" || !hasWallets;
-    const collapsed = hasWallets && !editing;
-    const preview = wallets.slice(0, 3).map(formatAddress).join("   ");
-    const hiddenCount = Math.max(0, wallets.length - 3);
-
-    card.classList.toggle("is-collapsed", collapsed);
-    summary.hidden = !collapsed;
-    form.hidden = collapsed;
-
-    setTextIfChanged(
-      summary.querySelector("#walletSummaryCount"),
-      `${wallets.length} wallet${wallets.length === 1 ? "" : "s"} saved`,
-    );
-    setTextIfChanged(
-      summary.querySelector("#walletSummaryPreview"),
-      `${preview}${hiddenCount > 0 ? `   +${hiddenCount} more` : ""}` || "Add wallets to start tracking.",
-    );
-  }
-
-  function patchNamedWalletRows() {
-    document.querySelectorAll(".allocation-row").forEach((row) => {
-      const strong = row.querySelector(".allocation-row-header strong");
-      const small = row.querySelector(".allocation-row-header small");
-      const addressLabel = small?.textContent.trim();
-
-      if (strong && addressLabel && /^Wallet\s+\d+$/i.test(strong.textContent.trim())) {
-        setTextIfChanged(strong, addressLabel);
-        setTextIfChanged(small, "");
-      }
-    });
-
-    document.querySelectorAll("#farmRows tr").forEach((row) => {
-      const strong = row.querySelector(".wallet-cell strong");
-      const small = row.querySelector(".wallet-cell small");
-      const address = small?.textContent.trim();
-
-      if (strong && address && /^Wallet\s+\d+$/i.test(strong.textContent.trim())) {
-        setTextIfChanged(strong, isWalletAddress(address) ? formatAddress(address) : address);
-        setTextIfChanged(small, "");
-      }
-    });
-  }
-
-  function patchAssumptionsDisclosure() {
-    const panel = document.querySelector(".moonsheet-panel");
-    const note = panel?.querySelector(".moonsheet-note");
-    if (!panel || !note) return;
-
-    let disclosure = panel.querySelector("#assumptionsDisclosure");
-    if (!disclosure) {
-      disclosure = document.createElement("details");
-      disclosure.className = "scenario-disclosure assumptions-disclosure";
-      disclosure.id = "assumptionsDisclosure";
-      disclosure.innerHTML = `
-        <summary>
-          <span>Assumptions</span>
-          <strong>Projection details</strong>
-        </summary>
-        <p class="assumptions-copy"></p>
-      `;
-      note.after(disclosure);
-    }
-
-    const copy = note.textContent.trim();
-    if (copy) setTextIfChanged(disclosure.querySelector(".assumptions-copy"), copy);
-    note.hidden = true;
-  }
-
-  function polishStaticCopy() {
-    setTextIfChanged(document.querySelector(".farm-hero .hero-grid h1"), "Analyze your Saturn farm");
-    setTextIfChanged(document.querySelector(".farm-dashboard > .content-grid h2"), "Allocation");
-    const copy = document.querySelector(".farm-hero .hero-copy");
-    if (copy) {
-      setTextIfChanged(
-        copy,
-        "Save multiple public wallet addresses, total their Saturn points, compare contribution, and inspect airdrop scenarios."
+function enrichRows(rows) {
+  return rows
+    .map((row) => {
+      const leaderboardRow = state.leaderboard.find(
+        (entry) => entry.address.toLowerCase() === row.address.toLowerCase(),
       );
-    }
-    setTextIfChanged(document.querySelector(".wallet-manager-card .card-label"), "/ Saved Wallet List");
-    setTextIfChanged(document.querySelector(".moonsheet-panel .card-label"), "/ Airdrop Estimate");
+
+      return {
+        ...row,
+        rank: leaderboardRow?.rank ?? null,
+        leaderboardPoints: leaderboardRow?.points ?? null,
+        share: state.total > 0 ? (row.points / state.total) * 100 : 0,
+      };
+    })
+    .sort((a, b) => b.points - a.points);
+}
+
+function renderAllocation() {
+  if (state.wallets.length === 0) {
+    elements.allocationList.innerHTML = '<div class="loading-card">Save one or more wallet addresses above to see contribution by wallet.</div>';
+    return;
   }
 
-  function polishScenarioTable() {
-    setTextIfChanged(document.querySelector(".scenario-table thead th:first-child"), "FDV");
+  elements.allocationList.innerHTML = state.rows
+    .map((row) => {
+      const width = Math.max(row.share, row.points > 0 ? 2 : 0);
+      return `
+        <article class="allocation-row">
+          <div class="allocation-row-header">
+            <span>
+              <strong>${formatWalletLabel(row)}</strong>
+            </span>
+            <b>${formatPercent.format(row.share)}%</b>
+          </div>
+          <div class="allocation-track" aria-label="${row.label} share ${formatPercent.format(row.share)} percent">
+            <span style="width: ${width}%"></span>
+          </div>
+          <div class="allocation-meta">
+            <span>${formatPoints.format(row.points)} points</span>
+            <span>${row.rank ? `#${formatNumber.format(row.rank)}` : "1000+ rank"}</span>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function renderTable() {
+  if (state.wallets.length === 0) {
+    elements.farmRows.innerHTML = '<tr class="empty-row"><td colspan="4">Save wallet addresses above to load data.</td></tr>';
+    return;
   }
 
-  function polishFdvLabels() {
-    if (polishing || !document.body) return;
-    polishing = true;
+  elements.farmRows.innerHTML = state.rows
+    .map((row, index) => {
+      const rankText = row.rank ? `#${formatNumber.format(row.rank)}` : "1000+";
+      const walletLabel = formatWalletLabel(row);
+      return `
+        <tr>
+          <td>
+            <div class="wallet-cell">
+              <span class="wallet-badge">${index + 1}</span>
+              <span>
+                <strong title="${row.address}">${walletLabel}</strong>
+              </span>
+            </div>
+          </td>
+          <td>${formatPoints.format(row.points)}</td>
+          <td>${formatPercent.format(row.share)}%</td>
+          <td>${rankText}</td>
+        </tr>
+      `;
+    })
+    .join("");
+}
 
-    injectAirdropStyles();
-    polishStaticCopy();
-    polishScenarioTable();
-    updateWalletSummary();
-    patchNamedWalletRows();
-    patchAssumptionsDisclosure();
-    replaceText(".metric-card small", [[/^Base:\s*/i, "$500M FDV - "]]);
-    replaceText(".moonsheet-highlight small", [[/^Base\s+airdrop/i, "$500M airdrop"]]);
+function renderFdvScenarios(projection) {
+  elements.fdvScenarioSelect.innerHTML = projection.scenarios
+    .map((scenario, index) => {
+      const basis =
+        scenario.fdv === SNAPSHOT_TVL_USD
+          ? "1x TVL"
+          : `${(scenario.fdv / SNAPSHOT_TVL_USD).toFixed(1)}x TVL`;
 
-    const focusCase = document.querySelector("#scenarioFocusCase");
-    if (focusCase && /^Base\b/i.test(focusCase.textContent.trim())) {
-      setTextIfChanged(focusCase, "$500M FDV");
-    }
+      return `<option value="${index}">${scenario.name} FDV - ${formatUsd.format(scenario.estimatedValue)} (${basis})</option>`;
+    })
+    .join("");
 
-    document.querySelectorAll("#fdvScenarioSelect option").forEach((option) => {
-      const next = option.textContent
-        .replace(/^Base\s*-\s*\$500M\s+FDV/i, "$500M FDV")
-        .replace(/^Base\b/i, "$500M");
-      setTextIfChanged(option, next);
-    });
+  elements.fdvScenarioRows.innerHTML = projection.scenarios
+    .map((scenario, index) => {
+      const basis =
+        scenario.fdv === SNAPSHOT_TVL_USD
+          ? "1x assumed TVL"
+          : `${(scenario.fdv / SNAPSHOT_TVL_USD).toFixed(1)}x assumed TVL`;
+      return `
+        <tr tabindex="0" data-scenario-index="${index}" aria-label="${scenario.name} FDV scenario estimated value ${formatUsd.format(scenario.estimatedValue)}">
+          <td><strong>${scenario.name}</strong></td>
+          <td>${basis}</td>
+          <td>${formatUsd.format(scenario.estimatedValue)}</td>
+        </tr>
+      `;
+    })
+    .join("");
 
-    document.querySelectorAll("#fdvScenarioRows tr").forEach((row) => {
-      const label = row.querySelector("td:first-child strong");
-      if (label?.textContent.trim() === "Base") {
-        setTextIfChanged(label, "$500M");
-      }
+  const rows = Array.from(elements.fdvScenarioRows.querySelectorAll("tr"));
+  const baseIndex = Math.max(
+    0,
+    projection.scenarios.findIndex((scenario) => scenario.fdv === BASE_FDV_USD),
+  );
 
-      const ariaLabel = row.getAttribute("aria-label");
-      if (ariaLabel?.startsWith("Base FDV")) {
-        const next = ariaLabel.replace(/^Base FDV/i, "$500M FDV");
-        if (ariaLabel !== next) row.setAttribute("aria-label", next);
-      }
-    });
+  rows.forEach((row) => {
+    const index = Number(row.dataset.scenarioIndex);
+    const activate = () => setActiveScenario(index, projection);
 
-    polishing = false;
-  }
+    row.addEventListener("mouseenter", activate);
+    row.addEventListener("focus", activate);
+    row.addEventListener("click", activate);
+  });
 
-  function startPolish() {
-    polishFdvLabels();
-    new MutationObserver(() => requestAnimationFrame(polishFdvLabels)).observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
-  }
-
-  PatchedNumberFormat.prototype = NativeNumberFormat.prototype;
-  PatchedNumberFormat.supportedLocalesOf = NativeNumberFormat.supportedLocalesOf.bind(NativeNumberFormat);
-  Intl.NumberFormat = PatchedNumberFormat;
-
-  script.src = "analysis-base.js";
-  script.onload = () => {
-    restoreNumberFormat();
-    startPolish();
+  elements.fdvScenarioSelect.onchange = (event) => {
+    setActiveScenario(Number(event.target.value), projection);
   };
-  script.onerror = () => {
-    restoreNumberFormat();
-    startPolish();
-  };
-  document.head.appendChild(script);
-})();
+
+  setActiveScenario(baseIndex, projection, { highlightRow: false });
+}
+
+function setActiveScenario(index, projection, { highlightRow = true } = {}) {
+  const scenario = projection.scenarios[index];
+  if (!scenario) return;
+
+  const basis =
+    scenario.fdv === SNAPSHOT_TVL_USD
+      ? "1x assumed snapshot TVL"
+      : `${(scenario.fdv / SNAPSHOT_TVL_USD).toFixed(1)}x assumed snapshot TVL`;
+
+  elements.fdvScenarioRows.querySelectorAll("tr").forEach((row) => {
+    row.classList.toggle("active", highlightRow && Number(row.dataset.scenarioIndex) === index);
+  });
+  elements.fdvScenarioSelect.value = String(index);
+  elements.scenarioFocusCase.textContent = `${scenario.name} FDV`;
+  elements.scenarioFocusValue.textContent = formatUsd.format(scenario.estimatedValue);
+  elements.scenarioFocusMeta.textContent = `${basis}; ${formatUsdCompact.format(scenario.airdropPool)} airdrop pool at ${formatPercent.format(AIRDROP_PERCENT * 100)}%.`;
+}
+
+function render() {
+  const projection = getProjection();
+  const walletCount = state.wallets.length;
+  const updated = state.lastUpdated
+    ? state.lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+    : "-";
+  const snapshotLabel = SNAPSHOT_DATE.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  const projectionStartLabel = PROJECTION_START_DATE.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  elements.walletCountStat.textContent = formatNumber.format(walletCount);
+  elements.farmHeaderPoints.textContent = formatCompact.format(state.total);
+  elements.totalFarmPoints.textContent = formatCompact.format(state.total);
+  elements.farmTotalLarge.textContent = formatPoints.format(state.total);
+  elements.pointShare.textContent = `${formatPercent.format(projection.pointShare * 100)}%`;
+  elements.networkTotalCaption.textContent = `${formatCompact.format(state.networkTotalPoints)} total public points`;
+  elements.moonsheetValue.textContent = formatUsdCompact.format(projection.baseScenario.estimatedValue);
+  elements.projectedSnapshotPoints.textContent = formatCompact.format(projection.projectedFarmPoints);
+  elements.projectionStatus.textContent = state.lastUpdated ? `Snapshot ${snapshotLabel}` : "Waiting for live data";
+  elements.moonCurrentPoints.textContent = formatCompact.format(state.total);
+  elements.moonTotalPoints.textContent = formatCompact.format(state.networkTotalPoints);
+  elements.moonShare.textContent = `${formatPercent.format(projection.pointShare * 100)}%`;
+  elements.moonPoolValue.textContent = formatUsdCompact.format(SNAPSHOT_TVL_USD);
+  elements.moonProjectedFarm.textContent = formatCompact.format(projection.projectedFarmPoints);
+  elements.moonProjectedTotal.textContent = formatCompact.format(projection.projectedNetworkPoints);
+  elements.moonDays.textContent = `${formatNumber.format(Math.ceil(projection.daysToSnapshot))}`;
+  elements.moonEstimatedValue.textContent = formatUsd.format(projection.baseScenario.estimatedValue);
+  elements.projectionNote.textContent =
+    `${formatUsdCompact.format(SNAPSHOT_TVL_USD)} snapshot TVL, $150M-$1B FDV cases in $50M steps, and ${formatPercent.format(AIRDROP_PERCENT * 100)}% airdrop pool. Projection uses a linear point pace from ${projectionStartLabel} to ${snapshotLabel}; it is not a guaranteed emission schedule.`;
+  elements.averageWalletPoints.textContent = walletCount > 0 ? formatCompact.format(state.total / walletCount) : "-";
+  elements.pendingFarmPoints.textContent = formatCompact.format(state.totalPending);
+  elements.lastRefresh.textContent = updated;
+  elements.farmSyncStatus.textContent = state.lastUpdated
+    ? `Updated ${updated}`
+    : walletCount > 0
+      ? "Loading public data"
+      : "No wallets saved";
+  setWalletStatus(walletCount > 0 ? `${formatNumber.format(walletCount)} wallet${walletCount === 1 ? "" : "s"} saved locally.` : "No wallets saved.");
+
+  renderWalletManager();
+  renderAllocation();
+  renderFdvScenarios(projection);
+  renderTable();
+}
+
+async function refreshFarm() {
+  elements.refreshFarm.disabled = true;
+  elements.refreshFarm.textContent = "Loading";
+  elements.farmSyncStatus.textContent = "Loading public data";
+
+  try {
+    const [leaderboardRaw, totalRaw, excludedRows] = await Promise.all([
+      fetchJson(urls.leaderboard),
+      fetchJson(urls.total),
+      fetchJson(urls.recipient(EXCLUDED_ADDRESS)),
+    ]);
+    const walletRows = state.wallets.length > 0 ? await Promise.all(state.wallets.map(fetchWallet)) : [];
+
+    state.leaderboard = parseLeaderboard(leaderboardRaw);
+    state.total = walletRows.reduce((sum, row) => sum + row.points, 0);
+    state.totalPending = walletRows.reduce((sum, row) => sum + row.pending, 0);
+    state.networkTotalPoints = unitsToNumber(totalAmount(totalRaw) - totalAmount(excludedRows?.[0]));
+    state.rows = enrichRows(walletRows);
+    state.lastUpdated = new Date();
+    render();
+  } catch (error) {
+    elements.farmSyncStatus.textContent = "Public data failed to load";
+    setWalletStatus(error.message);
+  } finally {
+    elements.refreshFarm.disabled = false;
+    elements.refreshFarm.textContent = "Refresh points";
+  }
+}
+
+function buildCsv() {
+  const header = ["wallet_label", "address", "points", "share_percent", "rank"];
+  const rows = state.rows.map((row) => [
+    row.label,
+    row.address,
+    row.points,
+    row.share,
+    row.rank ?? "1000+",
+  ]);
+
+  return [header, ...rows]
+    .map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","))
+    .join("\n");
+}
+
+async function copyWithButton(button, text, successText = "Copied") {
+  const originalText = button.textContent;
+
+  try {
+    await copyText(text);
+    button.textContent = successText;
+  } catch {
+    button.textContent = "Copy failed";
+  }
+
+  setTimeout(() => {
+    button.textContent = originalText;
+  }, 1500);
+}
+
+elements.walletManagerForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const wallets = parseWallets(elements.walletListInput.value);
+
+  if (wallets.length === 0) {
+    setWalletStatus("No valid 0x wallet addresses found.");
+    return;
+  }
+
+  state.wallets = wallets;
+  state.editingWallets = false;
+  saveWallets(state.wallets);
+  syncWalletInput();
+  setWalletStatus(`${formatNumber.format(wallets.length)} wallet${wallets.length === 1 ? "" : "s"} saved locally.`);
+  refreshFarm();
+});
+
+elements.copyWallets.addEventListener("click", () => {
+  const text = state.wallets.map((wallet) => wallet.address).join("\n") || elements.walletListInput.value.trim();
+  if (!text) {
+    setWalletStatus("No wallet addresses to copy.");
+    return;
+  }
+
+  copyWithButton(elements.copyWallets, text);
+});
+
+elements.copyWalletsCompact.addEventListener("click", () => {
+  const text = state.wallets.map((wallet) => wallet.address).join("\n");
+  if (!text) {
+    setWalletStatus("No wallet addresses to copy.");
+    return;
+  }
+
+  copyWithButton(elements.copyWalletsCompact, text);
+});
+
+elements.clearWallets.addEventListener("click", () => {
+  state.wallets = [];
+  state.editingWallets = true;
+  state.rows = [];
+  state.total = 0;
+  state.totalPending = 0;
+  saveWallets(state.wallets);
+  syncWalletInput();
+  setWalletStatus("Wallet list cleared.");
+  refreshFarm();
+});
+
+elements.refreshFarm.addEventListener("click", refreshFarm);
+
+elements.editWallets.addEventListener("click", () => {
+  state.editingWallets = true;
+  render();
+  elements.walletListInput.focus();
+});
+
+elements.copyCsv.addEventListener("click", () => {
+  copyWithButton(elements.copyCsv, buildCsv());
+});
+
+document.querySelectorAll("[data-copy-ref]").forEach((button) => {
+  button.addEventListener("click", () => {
+    copyWithButton(button, button.dataset.copyRef);
+  });
+});
+
+syncWalletInput();
+render();
+refreshFarm();
