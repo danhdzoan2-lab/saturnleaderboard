@@ -424,8 +424,8 @@ function renderFdvScenarios(projection) {
     .map((scenario, index) => {
       const basis =
         scenario.fdv === SNAPSHOT_TVL_USD
-          ? "1x assumed TVL"
-          : `${(scenario.fdv / SNAPSHOT_TVL_USD).toFixed(1)}x assumed TVL`;
+          ? "1x TVL"
+          : `${(scenario.fdv / SNAPSHOT_TVL_USD).toFixed(1)}x TVL`;
       return `
         <tr tabindex="0" data-scenario-index="${index}" aria-label="${scenario.name} FDV scenario estimated value ${formatUsd.format(scenario.estimatedValue)}">
           <td><strong>${scenario.name}</strong></td>
@@ -601,6 +601,7 @@ elements.walletManagerForm.addEventListener("submit", (event) => {
   saveWallets(state.wallets);
   syncWalletInput();
   setWalletStatus(`${formatNumber.format(wallets.length)} wallet${wallets.length === 1 ? "" : "s"} saved locally.`);
+  renderWalletManager();
   refreshFarm();
 });
 

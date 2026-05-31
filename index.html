@@ -125,6 +125,7 @@
         display: inline-flex;
         align-items: baseline;
         gap: 0.16em;
+        font-family: var(--font-display) !important;
         line-height: 0.82;
         letter-spacing: -0.075em !important;
         text-align: left;
@@ -181,8 +182,9 @@
       .mini-stats small {
         display: block;
         color: var(--muted);
-        font-family: var(--font-mono);
+        font-family: var(--font-display);
         font-size: 0.68rem;
+        font-weight: 900;
         letter-spacing: 0.1em;
         text-transform: uppercase;
       }
@@ -192,11 +194,21 @@
       .mini-stats strong {
         display: block;
         margin-top: 7px;
-        font-family: var(--font-mono);
+        font-family: var(--font-display);
+        font-weight: 950;
       }
 
       .daily-distribution strong {
         color: var(--gold);
+        font-size: clamp(1.18rem, 1.65vw, 1.55rem);
+        letter-spacing: -0.035em;
+        line-height: 1;
+      }
+
+      .chart-summary strong,
+      .mini-stats strong {
+        font-size: 1.05rem;
+        letter-spacing: -0.02em;
       }
 
       .chart-wrap {
@@ -235,13 +247,69 @@
         stroke-width: 4;
       }
 
+      .chart-point {
+        cursor: crosshair;
+        outline: none;
+      }
+
+      .chart-hit-area {
+        fill: transparent;
+        pointer-events: all;
+      }
+
+      .chart-point .chart-dot {
+        transition:
+          r 160ms ease,
+          stroke-width 160ms ease,
+          filter 160ms ease;
+      }
+
+      .chart-point:hover .chart-dot,
+      .chart-point:focus .chart-dot {
+        r: 7;
+        stroke-width: 5;
+        filter: drop-shadow(0 0 10px rgba(255, 90, 20, 0.7));
+      }
+
+      .chart-tooltip {
+        position: absolute;
+        z-index: 8;
+        display: none;
+        max-width: min(260px, calc(100% - 24px));
+        padding: 10px 12px;
+        border: 1px solid rgba(255, 90, 20, 0.44);
+        border-radius: 14px;
+        background: rgba(7, 5, 3, 0.96);
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.42);
+        color: var(--text);
+        font-family: var(--font-display);
+        font-size: 0.88rem;
+        font-weight: 950;
+        line-height: 1.25;
+        pointer-events: none;
+      }
+
+      .chart-tooltip strong {
+        display: block;
+        font: inherit;
+      }
+
+      .chart-tooltip span {
+        display: block;
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-weight: 800;
+      }
+
       .chart-labels {
         display: flex;
         justify-content: space-between;
         gap: 12px;
         padding: 0 16px 14px;
         color: var(--muted);
-        font-family: var(--font-mono);
+        font-family: var(--font-display);
+        font-weight: 900;
         font-size: 0.72rem;
         letter-spacing: 0.08em;
         text-transform: uppercase;
@@ -702,6 +770,55 @@
           subtree: true,
         });
         renderCompactUnit();
+
+        const chartWrap = document.querySelector(".chart-wrap");
+        if (!chartWrap) return;
+
+        const tooltip = document.createElement("div");
+        tooltip.className = "chart-tooltip";
+        chartWrap.appendChild(tooltip);
+
+        const setTooltipText = (label) => {
+          const parts = label.split(" | ");
+          tooltip.replaceChildren();
+          parts.forEach((part, index) => {
+            const element = document.createElement(index === 0 ? "strong" : "span");
+            element.textContent = part;
+            tooltip.appendChild(element);
+          });
+        };
+
+        const moveTooltip = (event, point) => {
+          const wrapRect = chartWrap.getBoundingClientRect();
+          const pointRect = point.getBoundingClientRect();
+          const hasPointer = Number.isFinite(event.clientX) && Number.isFinite(event.clientY);
+          const anchorX = hasPointer ? event.clientX - wrapRect.left : pointRect.left - wrapRect.left + pointRect.width / 2;
+          const anchorY = hasPointer ? event.clientY - wrapRect.top : pointRect.top - wrapRect.top + pointRect.height / 2;
+          const x = Math.min(wrapRect.width - tooltip.offsetWidth - 10, Math.max(10, anchorX + 14));
+          const y = Math.max(10, anchorY - tooltip.offsetHeight - 14);
+
+          tooltip.style.left = `${x}px`;
+          tooltip.style.top = `${y}px`;
+        };
+
+        const showTooltip = (event) => {
+          const point = event.target.closest(".chart-point");
+          if (!point || !chartWrap.contains(point)) return;
+
+          setTooltipText(point.getAttribute("aria-label") || "");
+          tooltip.style.display = "block";
+          moveTooltip(event, point);
+        };
+
+        chartWrap.addEventListener("pointerover", showTooltip);
+        chartWrap.addEventListener("pointermove", showTooltip);
+        chartWrap.addEventListener("pointerleave", () => {
+          tooltip.style.display = "none";
+        });
+        chartWrap.addEventListener("focusin", showTooltip);
+        chartWrap.addEventListener("focusout", () => {
+          tooltip.style.display = "none";
+        });
       });
     </script>
   </body>

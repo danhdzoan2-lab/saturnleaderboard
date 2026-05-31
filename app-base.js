@@ -82,6 +82,15 @@ function formatAddress(address) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function debankUrl(address) {
   return `https://debank.com/profile/${address}`;
 }
@@ -249,10 +258,10 @@ function chartPath(values) {
 
 function renderChart() {
   const span = Number(state.activeRange);
-  const values = state.leaderboard
+  const rows = state.leaderboard
     .slice(0, span)
-    .map((row) => row.points)
     .reverse();
+  const values = rows.map((row) => row.points);
   const points = chartPath(values);
   const line = points.map((point, index) => `${index === 0 ? "M" : "L"}${point.x} ${point.y}`).join(" ");
   const area = `${line} L${points.at(-1).x} 230 L${points[0].x} 230 Z`;
@@ -260,10 +269,22 @@ function renderChart() {
 
   elements.chartLine.setAttribute("d", line);
   elements.chartArea.setAttribute("d", area);
-  elements.chartDots.innerHTML = points
-    .filter((_, index) => index === 0 || index === points.length - 1 || index % dotStep === 0)
-    .map((point) => `<circle class="chart-dot" cx="${point.x}" cy="${point.y}" r="5"></circle>`)
-    .join("");
+  elements.chartDots.innerHTML = rows.length
+    ? points
+        .map((point, index) => ({ point, row: rows[index], index }))
+        .filter(({ row, index }) => row && (index === 0 || index === rows.length - 1 || index % dotStep === 0))
+        .map(({ point, row }) => {
+          const label = `Rank #${row.rank} | ${formatAddress(row.address)} | ${formatNumber.format(row.points)} points`;
+          return `
+            <g class="chart-point" tabindex="0" aria-label="${escapeHtml(label)}">
+              <circle class="chart-hit-area" cx="${point.x}" cy="${point.y}" r="15"></circle>
+              <circle class="chart-dot" cx="${point.x}" cy="${point.y}" r="5"></circle>
+              <title>${escapeHtml(label)}</title>
+            </g>
+          `;
+        })
+        .join("")
+    : "";
 }
 
 function parseLeaderboard(rows) {
