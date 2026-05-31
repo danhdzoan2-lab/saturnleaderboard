@@ -41,7 +41,7 @@
         <div class="hero-grid farm-hero-grid">
           <div>
             <p class="kicker">Farm Analysis</p>
-            <h1>Track your Saturn farm.</h1>
+            <h1>Analyze your Saturn farm</h1>
             <p class="hero-copy">
               Save multiple public wallet addresses, total their Saturn points,
               compare contribution, and inspect airdrop scenarios.
@@ -55,9 +55,20 @@
           </div>
 
           <aside class="wallet-card wallet-manager-card">
-            <span class="card-label">/ Wallet List</span>
+            <span class="card-label">/ Saved Wallet List</span>
             <h2>Saved wallets</h2>
             <p>Paste one or more 0x addresses. Your list is saved locally in this browser.</p>
+            <div class="wallet-summary" id="walletSummary" hidden>
+              <div>
+                <small>Wallets saved</small>
+                <strong id="walletSummaryCount">No wallets saved</strong>
+                <span id="walletSummaryPreview">Add wallets to start tracking.</span>
+              </div>
+              <div class="wallet-summary-actions">
+                <button class="ghost-btn compact-action" id="copyWalletsCompact" type="button">Copy</button>
+                <button class="ghost-btn compact-action" id="editWallets" type="button">Edit wallets</button>
+              </div>
+            </div>
             <form class="wallet-manager" id="walletManagerForm">
               <label for="walletListInput">Wallet addresses</label>
               <textarea
@@ -107,7 +118,7 @@
         <article class="metric-card reveal">
           <span class="metric-label">Moonsheet Value</span>
           <strong id="moonsheetValue">-</strong>
-          <small>Base: 5% airdrop - 1x TVL FDV</small>
+          <small>$500M FDV - 5% airdrop - 1x TVL</small>
         </article>
 
         <article class="metric-card reveal">
@@ -120,7 +131,7 @@
       <section class="panel moonsheet-panel reveal" aria-label="Airdrop moonsheet">
         <div class="panel-heading table-heading">
           <div>
-            <span class="card-label">/ Moonsheet</span>
+            <span class="card-label">/ Airdrop Estimate</span>
             <h2>Airdrop estimate</h2>
           </div>
           <div class="sync-status">
@@ -159,13 +170,13 @@
             <strong id="moonDays">-</strong>
           </article>
           <article class="moonsheet-highlight">
-            <small>Base airdrop value</small>
+            <small>$500M airdrop value</small>
             <strong id="moonEstimatedValue">-</strong>
           </article>
         </div>
 
         <div class="scenario-focus" id="scenarioFocus" aria-live="polite">
-          <span id="scenarioFocusCase">Base case</span>
+          <span id="scenarioFocusCase">$500M FDV</span>
           <strong id="scenarioFocusValue">-</strong>
           <small id="scenarioFocusMeta"></small>
         </div>
@@ -188,34 +199,38 @@
             <table class="scenario-table">
               <thead>
                 <tr>
-                  <th>Case</th>
-                  <th>TVL Basis</th>
                   <th>FDV</th>
-                  <th>Airdrop Pool</th>
+                  <th>TVL Basis</th>
                   <th>Your Est. Value</th>
                 </tr>
               </thead>
               <tbody id="fdvScenarioRows">
                 <tr class="empty-row">
-                  <td colspan="5">Loading FDV scenarios...</td>
+                  <td colspan="3">Loading FDV scenarios...</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </details>
 
-        <p class="moonsheet-note" id="projectionNote">
-          Projection uses a linear pace assumption because the public API exposes
-          cumulative points, not a guaranteed future emission schedule.
-        </p>
+        <details class="assumptions-disclosure">
+          <summary>
+            <span>Assumptions</span>
+            <strong>Projection details</strong>
+          </summary>
+          <p class="moonsheet-note" id="projectionNote">
+            Projection uses a linear pace assumption because the public API exposes
+            cumulative points, not a guaranteed future emission schedule.
+          </p>
+        </details>
       </section>
 
       <section class="content-grid single-column">
         <article class="panel points-panel reveal">
           <div class="panel-heading">
             <div>
-              <span class="card-label">/ Allocation</span>
-              <h2>Wallet contribution</h2>
+              <span class="card-label">/ Wallet Contribution</span>
+              <h2>Allocation</h2>
             </div>
             <div class="sync-status">
               <span class="pulse-dot" aria-hidden="true"></span>
@@ -266,16 +281,13 @@
               <tr>
                 <th>Wallet</th>
                 <th>Saturn Points</th>
-                <th>Confirmed</th>
-                <th>Pending</th>
                 <th>Share</th>
                 <th>Rank</th>
-                <th>Status</th>
               </tr>
             </thead>
             <tbody id="farmRows">
               <tr class="empty-row">
-                <td colspan="7">Save wallet addresses above to load data.</td>
+                  <td colspan="4">Save wallet addresses above to load data.</td>
               </tr>
             </tbody>
           </table>
