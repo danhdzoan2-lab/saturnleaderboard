@@ -3,7 +3,7 @@ const SATURN_POINT_TOKEN = "0xD223bbdd0421E394C0df9dFfe568f1dADfFd6f85";
 const EXCLUDED_ADDRESS = "0x80c6a512b548229226c0676d6fdbaff81d325990";
 const LEADERBOARD_PAGE_SIZE = 1000;
 const SNAPSHOT_START_DATE_UTC = "2026-06-01";
-const SNAPSHOT_HOUR_UTC = 1;
+const SNAPSHOT_HOUR_UTC = 0;
 const SNAPSHOT_MINUTE_UTC = 30;
 const SNAPSHOT_LIMIT = 60;
 const SNAPSHOT_DATES_KEY = "saturn:leaderboard:snapshot-dates";
@@ -208,6 +208,23 @@ async function getSnapshotHistory() {
   return { available: snapshots.length > 0, dates, snapshots };
 }
 
+async function buildCurrentSnapshot(now = new Date()) {
+  const snapshotDate = getSnapshotDateKey(now);
+  const [rows, distributedPoints] = await Promise.all([
+    fetchLeaderboardRows(),
+    fetchDistributedPoints(),
+  ]);
+
+  return {
+    date: snapshotDate,
+    capturedAt: now.toISOString(),
+    cutoffUtc: `${snapshotDate}T${String(SNAPSHOT_HOUR_UTC).padStart(2, "0")}:${String(SNAPSHOT_MINUTE_UTC).padStart(2, "0")}:00.000Z`,
+    distributedPoints,
+    rowCount: rows.length,
+    rows,
+  };
+}
+
 async function captureDailySnapshot(now = new Date()) {
   if (!hasRedisConfig()) {
     return { ok: false, skipped: true, reason: "Database not configured" };
@@ -238,18 +255,7 @@ async function captureDailySnapshot(now = new Date()) {
     return { ok: true, skipped: true, reason: "Snapshot already captured", snapshot: existing };
   }
 
-  const [rows, distributedPoints] = await Promise.all([
-    fetchLeaderboardRows(),
-    fetchDistributedPoints(),
-  ]);
-  const snapshot = {
-    date: snapshotDate,
-    capturedAt: now.toISOString(),
-    cutoffUtc: `${snapshotDate}T${String(SNAPSHOT_HOUR_UTC).padStart(2, "0")}:${String(SNAPSHOT_MINUTE_UTC).padStart(2, "0")}:00.000Z`,
-    distributedPoints,
-    rowCount: rows.length,
-    rows,
-  };
+  const snapshot = await buildCurrentSnapshot(now);
 
   await redisSetJson(`${SNAPSHOT_KEY_PREFIX}${snapshotDate}`, snapshot);
   const dates = await getSnapshotDates();
@@ -262,6 +268,7 @@ module.exports = {
   SNAPSHOT_START_DATE_UTC,
   SNAPSHOT_HOUR_UTC,
   SNAPSHOT_MINUTE_UTC,
+  buildCurrentSnapshot,
   captureDailySnapshot,
   getLatestSnapshot,
   getSnapshotHistory,

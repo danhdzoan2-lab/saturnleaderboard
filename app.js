@@ -8,8 +8,9 @@ const DAILY_HISTORY_LIMIT = 120;
 const LEADERBOARD_SNAPSHOT_KEY = "saturn:leaderboard-snapshots:v1";
 const LEADERBOARD_SNAPSHOT_LIMIT = 45;
 const LEADERBOARD_SNAPSHOT_START_DATE_UTC = "2026-06-01";
-const LEADERBOARD_SNAPSHOT_HOUR_UTC = 1;
+const LEADERBOARD_SNAPSHOT_HOUR_UTC = 0;
 const LEADERBOARD_SNAPSHOT_MINUTE_UTC = 30;
+const STATIC_SNAPSHOT_CACHE_VERSION = "20260601-0030";
 
 const urls = {
   leaderboard: `https://api.merkl.xyz/v4/rewards/token/?chainId=${CHAIN_ID}&address=${SATURN_POINT_TOKEN}&items=${LEADERBOARD_PAGE_SIZE}`,
@@ -40,6 +41,8 @@ const state = {
   backendDailyHistory: [],
   backendDailyStatus: "",
   backendMovementStatus: "",
+  staticSnapshotHistory: [],
+  staticSnapshotStatus: "",
   leaderboardSnapshots: loadLeaderboardSnapshots(),
   movementRanks: new Map(),
   movementSnapshotDate: null,
@@ -231,7 +234,7 @@ function recordLeaderboardSnapshot(leaderboard, now = new Date()) {
     {
       date: snapshotKey,
       capturedAt: now.toISOString(),
-      cutoffUtc: `${snapshotKey}T01:30:00.000Z`,
+      cutoffUtc: `${snapshotKey}T${String(LEADERBOARD_SNAPSHOT_HOUR_UTC).padStart(2, "0")}:${String(LEADERBOARD_SNAPSHOT_MINUTE_UTC).padStart(2, "0")}:00.000Z`,
       rows: leaderboard.map((row) => ({
         address: row.address.toLowerCase(),
         rank: row.rank,
@@ -247,14 +250,73 @@ function recordLeaderboardSnapshot(leaderboard, now = new Date()) {
 
 function updateMovementRanks(now = new Date()) {
   const snapshotKey = getEligibleSnapshotDateKey(now);
-  const previousSnapshot = state.leaderboardSnapshots
+  const previousSnapshot = [...state.staticSnapshotHistory, ...state.leaderboardSnapshots]
     .filter((snapshot) => (snapshotKey ? snapshot.date < snapshotKey : true))
+    .filter((snapshot) => Array.isArray(snapshot.rows))
+    .sort((a, b) => a.date.localeCompare(b.date))
     .at(-1);
 
   state.movementSnapshotDate = previousSnapshot?.date ?? null;
   state.movementRanks = new Map(
     previousSnapshot?.rows.map((row) => [row.address.toLowerCase(), row.rank]) ?? [],
   );
+}
+
+async function loadStaticSnapshotHistory() {
+  try {
+    const indexResponse = await fetch(`/snapshots/index.json?v=${STATIC_SNAPSHOT_CACHE_VERSION}`, {
+      headers: { accept: "application/json" },
+      cache: "no-store",
+    });
+
+    if (!indexResponse.ok) {
+      state.staticSnapshotHistory = [];
+      state.staticSnapshotStatus = "No static snapshot baseline";
+      return false;
+    }
+
+    const index = await indexResponse.json();
+    const dates = Array.isArray(index.dates)
+      ? index.dates.filter((date) => typeof date === "string")
+      : [];
+
+    const snapshots = await Promise.all(
+      dates.map(async (date) => {
+        try {
+          const response = await fetch(`/snapshots/${date}.json?v=${STATIC_SNAPSHOT_CACHE_VERSION}`, {
+            headers: { accept: "application/json" },
+            cache: "no-store",
+          });
+          return response.ok ? response.json() : null;
+        } catch {
+          return null;
+        }
+      }),
+    );
+
+    state.staticSnapshotHistory = snapshots
+      .filter((snapshot) => {
+        return (
+          snapshot &&
+          typeof snapshot.date === "string" &&
+          Number.isFinite(snapshot.distributedPoints) &&
+          Array.isArray(snapshot.rows) &&
+          snapshot.rows.every(
+            (row) =>
+              typeof row.address === "string" &&
+              Number.isFinite(row.rank) &&
+              Number.isFinite(row.points),
+          )
+        );
+      })
+      .sort((a, b) => a.date.localeCompare(b.date));
+    state.staticSnapshotStatus = state.staticSnapshotHistory.length ? "" : "No static snapshot baseline";
+    return state.staticSnapshotHistory.length > 0;
+  } catch {
+    state.staticSnapshotHistory = [];
+    state.staticSnapshotStatus = "Static snapshots unavailable";
+    return false;
+  }
 }
 
 function loadDailyHistory() {
@@ -363,8 +425,44 @@ function getBackendDailyStats() {
   };
 }
 
+function getStaticDailyStats() {
+  const rows = state.staticSnapshotHistory;
+  const snapshotKey = getEligibleSnapshotDateKey();
+  const previousSnapshot = rows
+    .filter((snapshot) => (snapshotKey ? snapshot.date < snapshotKey : true))
+    .at(-1);
+  const todayDelta =
+    previousSnapshot && Number.isFinite(state.pointsDistributed)
+      ? Math.max(0, state.pointsDistributed - previousSnapshot.distributedPoints)
+      : null;
+  const deltas = [];
+
+  for (let index = 1; index < rows.length; index += 1) {
+    deltas.push(Math.max(0, rows[index].distributedPoints - rows[index - 1].distributedPoints));
+  }
+
+  if (todayDelta != null) {
+    deltas.push(todayDelta);
+  }
+
+  const recentDeltas = deltas.slice(-7);
+  const average =
+    recentDeltas.length > 0 ? recentDeltas.reduce((sum, value) => sum + value, 0) / recentDeltas.length : null;
+
+  return {
+    todayDelta,
+    previousDelta: deltas.length > 1 ? deltas.at(-2) : null,
+    average,
+    trackedDays: rows.length + (todayDelta != null ? 1 : 0),
+    caption: previousSnapshot ? `Since UTC snapshot ${previousSnapshot.date}` : "Static baseline ready",
+    pendingLabel: previousSnapshot ? "Tracking" : "Ready tomorrow",
+    source: "static",
+  };
+}
+
 function getDailyStats() {
   if (state.backendDailyHistory.length > 0) return getBackendDailyStats();
+  if (state.staticSnapshotHistory.length > 0) return getStaticDailyStats();
 
   if (state.backendDailyStatus) {
     return {
@@ -687,6 +785,7 @@ async function loadPublicData() {
     state.lastUpdated = new Date();
     recordDailyDistribution(state.pointsDistributed, state.lastUpdated);
     recordLeaderboardSnapshot(state.leaderboard, state.lastUpdated);
+    await loadStaticSnapshotHistory();
     updateMovementRanks(state.lastUpdated);
     await Promise.all([loadBackendMovement(), loadBackendDailyHistory()]);
 

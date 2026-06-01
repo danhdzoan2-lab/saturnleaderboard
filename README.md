@@ -30,7 +30,7 @@ The farm analysis page does not ship fixed wallet addresses. Users paste one or 
 
 ## Daily Leaderboard Snapshots
 
-The production dashboard can record backend leaderboard snapshots once per day at `01:30 UTC`.
+The production dashboard can record backend leaderboard snapshots once per day at `00:30 UTC`.
 Those snapshots power the `Movement` column in the public leaderboard and the daily distribution cards.
 
 ### Required Vercel Setup
@@ -55,7 +55,7 @@ The cron schedule is configured in `vercel.json`:
   "crons": [
     {
       "path": "/api/cron/snapshot-leaderboard",
-      "schedule": "30 1 * * *"
+      "schedule": "30 0 * * *"
     }
   ]
 }
