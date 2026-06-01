@@ -7,6 +7,7 @@ const AIRDROP_PERCENT = 0.05;
 const SNAPSHOT_TVL_USD = 500_000_000;
 const BASE_FDV_USD = 500_000_000;
 const WALLET_STORAGE_KEY = "saturn:farm-wallets:v1";
+const STATIC_SNAPSHOT_CACHE_VERSION = "20260601-0030";
 const FDV_SCENARIOS = Array.from({ length: 18 }, (_, index) => {
   const fdv = 150_000_000 + index * 50_000_000;
 
@@ -66,6 +67,8 @@ const state = {
   editingWallets: false,
   rows: [],
   leaderboard: [],
+  staticSnapshotHistory: [],
+  staticSnapshotStatus: "",
   total: 0,
   totalPending: 0,
   networkTotalPoints: 0,
@@ -243,12 +246,139 @@ async function copyText(text) {
   return fallbackCopy(text);
 }
 
+async function loadStaticSnapshotHistory() {
+  try {
+    const indexResponse = await fetch(`/snapshots/index.json?v=${STATIC_SNAPSHOT_CACHE_VERSION}`, {
+      headers: { accept: "application/json" },
+      cache: "no-store",
+    });
+
+    if (!indexResponse.ok) {
+      state.staticSnapshotHistory = [];
+      state.staticSnapshotStatus = "No stored snapshot baseline";
+      return false;
+    }
+
+    const index = await indexResponse.json();
+    const dates = Array.isArray(index.dates)
+      ? index.dates.filter((date) => typeof date === "string")
+      : [];
+
+    const snapshots = await Promise.all(
+      dates.map(async (date) => {
+        try {
+          const response = await fetch(`/snapshots/${date}.json?v=${STATIC_SNAPSHOT_CACHE_VERSION}`, {
+            headers: { accept: "application/json" },
+            cache: "no-store",
+          });
+          return response.ok ? response.json() : null;
+        } catch {
+          return null;
+        }
+      }),
+    );
+
+    state.staticSnapshotHistory = snapshots
+      .filter((snapshot) => {
+        return (
+          snapshot &&
+          typeof snapshot.date === "string" &&
+          Number.isFinite(snapshot.distributedPoints) &&
+          Array.isArray(snapshot.rows) &&
+          snapshot.rows.every(
+            (row) =>
+              typeof row.address === "string" &&
+              Number.isFinite(row.rank) &&
+              Number.isFinite(row.points),
+          )
+        );
+      })
+      .sort((a, b) => a.date.localeCompare(b.date));
+    state.staticSnapshotStatus = state.staticSnapshotHistory.length ? "" : "No stored snapshot baseline";
+    return state.staticSnapshotHistory.length > 0;
+  } catch {
+    state.staticSnapshotHistory = [];
+    state.staticSnapshotStatus = "Stored snapshots unavailable";
+    return false;
+  }
+}
+
+function getWalletSnapshotTotal(snapshot) {
+  if (!snapshot || state.wallets.length === 0) {
+    return {
+      total: 0,
+      matched: 0,
+      complete: state.wallets.length === 0,
+    };
+  }
+
+  const rowByAddress = new Map(snapshot.rows.map((row) => [row.address.toLowerCase(), row]));
+  const total = state.wallets.reduce((sum, wallet) => {
+    return sum + (rowByAddress.get(wallet.address.toLowerCase())?.points ?? 0);
+  }, 0);
+  const matched = state.wallets.filter((wallet) => rowByAddress.has(wallet.address.toLowerCase())).length;
+
+  return {
+    total,
+    matched,
+    complete: matched === state.wallets.length,
+  };
+}
+
+function getSnapshotProjectionInputs() {
+  const snapshots = state.staticSnapshotHistory;
+  const latestSnapshot = snapshots.at(-1);
+  const previousSnapshot = snapshots.at(-2);
+
+  if (!latestSnapshot || !previousSnapshot) {
+    return {
+      available: false,
+      reason: snapshots.length < 2 ? "Need 2 daily snapshots" : state.staticSnapshotStatus,
+    };
+  }
+
+  const latestWallet = getWalletSnapshotTotal(latestSnapshot);
+  const previousWallet = getWalletSnapshotTotal(previousSnapshot);
+
+  if (!latestWallet.complete || !previousWallet.complete) {
+    return {
+      available: false,
+      reason: "Saved wallets need to be inside stored snapshot rows",
+      latestSnapshot,
+      latestWallet,
+    };
+  }
+
+  const latestFarmDailyPoints = Math.max(0, latestWallet.total - previousWallet.total);
+  const latestNetworkDailyPoints = Math.max(
+    0,
+    latestSnapshot.distributedPoints - previousSnapshot.distributedPoints,
+  );
+
+  return {
+    available: true,
+    latestSnapshot,
+    previousSnapshot,
+    latestFarmSnapshotPoints: latestWallet.total,
+    latestNetworkSnapshotPoints: latestSnapshot.distributedPoints,
+    latestFarmDailyPoints,
+    latestNetworkDailyPoints,
+  };
+}
+
 function getProjection() {
   const now = new Date();
   const elapsedDays = Math.max(1, (now.getTime() - PROJECTION_START_DATE.getTime()) / DAY_MS);
   const daysToSnapshot = Math.max(0, (SNAPSHOT_DATE.getTime() - now.getTime()) / DAY_MS);
-  const factor = (elapsedDays + daysToSnapshot) / elapsedDays;
-  const pointShare = state.networkTotalPoints > 0 ? state.total / state.networkTotalPoints : 0;
+  const wholeDaysToSnapshot = Math.ceil(daysToSnapshot);
+  const snapshotProjection = getSnapshotProjectionInputs();
+  const projectedFarmPoints = snapshotProjection.available
+    ? snapshotProjection.latestFarmSnapshotPoints + snapshotProjection.latestFarmDailyPoints * wholeDaysToSnapshot
+    : state.total;
+  const projectedNetworkPoints = snapshotProjection.available
+    ? snapshotProjection.latestNetworkSnapshotPoints + snapshotProjection.latestNetworkDailyPoints * wholeDaysToSnapshot
+    : state.networkTotalPoints;
+  const pointShare = projectedNetworkPoints > 0 ? projectedFarmPoints / projectedNetworkPoints : 0;
   const scenarios = FDV_SCENARIOS.map((scenario) => {
     const airdropPool = scenario.fdv * AIRDROP_PERCENT;
 
@@ -263,12 +393,16 @@ function getProjection() {
   return {
     elapsedDays,
     daysToSnapshot,
-    factor,
     pointShare,
     scenarios,
     baseScenario,
-    projectedFarmPoints: state.total * factor,
-    projectedNetworkPoints: state.networkTotalPoints * factor,
+    projectedFarmPoints,
+    projectedNetworkPoints,
+    latestFarmDailyPoints: snapshotProjection.available ? snapshotProjection.latestFarmDailyPoints : null,
+    latestNetworkDailyPoints: snapshotProjection.available ? snapshotProjection.latestNetworkDailyPoints : null,
+    projectionSnapshotDate: snapshotProjection.latestSnapshot?.date ?? null,
+    projectionReason: snapshotProjection.reason ?? "",
+    projectionUsesSnapshots: snapshotProjection.available,
   };
 }
 
@@ -487,11 +621,9 @@ function render() {
     day: "numeric",
     year: "numeric",
   });
-  const projectionStartLabel = PROJECTION_START_DATE.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  const projectionFormula = projection.projectionUsesSnapshots
+    ? `Projection uses the latest stored snapshot ${projection.projectionSnapshotDate}: farm snapshot total + ${formatCompact.format(projection.latestFarmDailyPoints)} latest daily farm points x ${formatNumber.format(Math.ceil(projection.daysToSnapshot))} days. Network projection uses ${formatCompact.format(projection.latestNetworkDailyPoints)} latest daily public points.`
+    : `Projection will switch to daily snapshot pace after two stored snapshots are available. Current estimate uses live totals only: ${projection.projectionReason || "waiting for snapshot baseline"}.`;
 
   elements.walletCountStat.textContent = formatNumber.format(walletCount);
   elements.farmHeaderPoints.textContent = formatCompact.format(state.total);
@@ -511,7 +643,7 @@ function render() {
   elements.moonDays.textContent = `${formatNumber.format(Math.ceil(projection.daysToSnapshot))}`;
   elements.moonEstimatedValue.textContent = formatUsd.format(projection.baseScenario.estimatedValue);
   elements.projectionNote.textContent =
-    `${formatUsdCompact.format(SNAPSHOT_TVL_USD)} snapshot TVL, $150M-$1B FDV cases in $50M steps, and ${formatPercent.format(AIRDROP_PERCENT * 100)}% airdrop pool. Projection uses a linear point pace from ${projectionStartLabel} to ${snapshotLabel}; it is not a guaranteed emission schedule.`;
+    `${formatUsdCompact.format(SNAPSHOT_TVL_USD)} snapshot TVL, $150M-$1B FDV cases in $50M steps, and ${formatPercent.format(AIRDROP_PERCENT * 100)}% airdrop pool. ${projectionFormula} This is not a guaranteed emission schedule.`;
   elements.averageWalletPoints.textContent = walletCount > 0 ? formatCompact.format(state.total / walletCount) : "-";
   elements.pendingFarmPoints.textContent = formatCompact.format(state.totalPending);
   elements.lastRefresh.textContent = updated;
@@ -547,6 +679,7 @@ async function refreshFarm() {
     state.networkTotalPoints = unitsToNumber(totalAmount(totalRaw) - totalAmount(excludedRows?.[0]));
     state.rows = enrichRows(walletRows);
     state.lastUpdated = new Date();
+    await loadStaticSnapshotHistory();
     render();
   } catch (error) {
     elements.farmSyncStatus.textContent = "Public data failed to load";
