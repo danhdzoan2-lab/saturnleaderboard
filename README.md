@@ -39,7 +39,7 @@ Those snapshots power the `Movement` column in the public leaderboard and the da
 2. Make sure these environment variables are available in Production:
    - `UPSTASH_REDIS_REST_URL`
    - `UPSTASH_REDIS_REST_TOKEN`
-   - `CRON_SECRET`
+   - `CRON_SECRET` (optional; if set, the cron route requires the matching bearer token)
 3. Deploy to Production. Vercel Cron will call:
    `/api/cron/snapshot-leaderboard`
 
