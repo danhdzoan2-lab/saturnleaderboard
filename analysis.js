@@ -330,17 +330,16 @@ function getSnapshotProjectionInputs() {
   const latestSnapshot = snapshots.at(-1);
   const previousSnapshot = snapshots.at(-2);
 
-  if (!latestSnapshot || !previousSnapshot) {
+  if (!latestSnapshot) {
     return {
       available: false,
-      reason: snapshots.length < 2 ? "Need 2 daily snapshots" : state.staticSnapshotStatus,
+      reason: state.staticSnapshotStatus || "No stored snapshot baseline",
     };
   }
 
   const latestWallet = getWalletSnapshotTotal(latestSnapshot);
-  const previousWallet = getWalletSnapshotTotal(previousSnapshot);
 
-  if (!latestWallet.complete || !previousWallet.complete) {
+  if (!latestWallet.complete) {
     return {
       available: false,
       reason: "Saved wallets need to be inside stored snapshot rows",
@@ -349,20 +348,39 @@ function getSnapshotProjectionInputs() {
     };
   }
 
-  const latestFarmDailyPoints = Math.max(0, latestWallet.total - previousWallet.total);
-  const latestNetworkDailyPoints = Math.max(
-    0,
-    latestSnapshot.distributedPoints - previousSnapshot.distributedPoints,
-  );
+  if (!previousSnapshot) {
+    return {
+      available: true,
+      mode: "live",
+      latestSnapshot,
+      previousSnapshot: null,
+      latestFarmSnapshotPoints: latestWallet.total,
+      latestNetworkSnapshotPoints: latestSnapshot.distributedPoints,
+      latestFarmDailyPoints: Math.max(0, state.total - latestWallet.total),
+      latestNetworkDailyPoints: Math.max(0, state.networkTotalPoints - latestSnapshot.distributedPoints),
+    };
+  }
+
+  const previousWallet = getWalletSnapshotTotal(previousSnapshot);
+
+  if (!previousWallet.complete) {
+    return {
+      available: false,
+      reason: "Saved wallets need to be inside the previous stored snapshot row set",
+      latestSnapshot,
+      latestWallet,
+    };
+  }
 
   return {
     available: true,
+    mode: "snapshot",
     latestSnapshot,
     previousSnapshot,
     latestFarmSnapshotPoints: latestWallet.total,
     latestNetworkSnapshotPoints: latestSnapshot.distributedPoints,
-    latestFarmDailyPoints,
-    latestNetworkDailyPoints,
+    latestFarmDailyPoints: Math.max(0, latestWallet.total - previousWallet.total),
+    latestNetworkDailyPoints: Math.max(0, latestSnapshot.distributedPoints - previousSnapshot.distributedPoints),
   };
 }
 
@@ -401,6 +419,7 @@ function getProjection() {
     latestFarmDailyPoints: snapshotProjection.available ? snapshotProjection.latestFarmDailyPoints : null,
     latestNetworkDailyPoints: snapshotProjection.available ? snapshotProjection.latestNetworkDailyPoints : null,
     projectionSnapshotDate: snapshotProjection.latestSnapshot?.date ?? null,
+    projectionMode: snapshotProjection.mode ?? "fallback",
     projectionReason: snapshotProjection.reason ?? "",
     projectionUsesSnapshots: snapshotProjection.available,
   };
@@ -622,7 +641,9 @@ function render() {
     year: "numeric",
   });
   const projectionFormula = projection.projectionUsesSnapshots
-    ? `Projection uses the latest stored snapshot ${projection.projectionSnapshotDate}: farm snapshot total + ${formatCompact.format(projection.latestFarmDailyPoints)} latest daily farm points x ${formatNumber.format(Math.ceil(projection.daysToSnapshot))} days. Network projection uses ${formatCompact.format(projection.latestNetworkDailyPoints)} latest daily public points.`
+    ? projection.projectionMode === "live"
+      ? `Projection uses the latest stored snapshot ${projection.projectionSnapshotDate}: farm snapshot total + ${formatCompact.format(projection.latestFarmDailyPoints)} live points earned since that snapshot x ${formatNumber.format(Math.ceil(projection.daysToSnapshot))} days. After the next snapshot, it switches to snapshot-to-snapshot daily pace.`
+      : `Projection uses the latest stored snapshot ${projection.projectionSnapshotDate}: farm snapshot total + ${formatCompact.format(projection.latestFarmDailyPoints)} latest daily farm points x ${formatNumber.format(Math.ceil(projection.daysToSnapshot))} days. Network projection uses ${formatCompact.format(projection.latestNetworkDailyPoints)} latest daily public points.`
     : `Projection will switch to daily snapshot pace after two stored snapshots are available. Current estimate uses live totals only: ${projection.projectionReason || "waiting for snapshot baseline"}.`;
 
   elements.walletCountStat.textContent = formatNumber.format(walletCount);
