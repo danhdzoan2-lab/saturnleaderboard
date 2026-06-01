@@ -98,7 +98,9 @@ const elements = {
   pointShare: document.querySelector("#pointShare"),
   networkTotalCaption: document.querySelector("#networkTotalCaption"),
   moonsheetValue: document.querySelector("#moonsheetValue"),
+  projectionSummaryLabel: document.querySelector("#projectionSummaryLabel"),
   projectedSnapshotPoints: document.querySelector("#projectedSnapshotPoints"),
+  projectionSummaryCaption: document.querySelector("#projectionSummaryCaption"),
   projectionStatus: document.querySelector("#projectionStatus"),
   moonCurrentPoints: document.querySelector("#moonCurrentPoints"),
   moonTotalPoints: document.querySelector("#moonTotalPoints"),
@@ -653,7 +655,18 @@ function render() {
   elements.pointShare.textContent = `${formatPercent.format(projection.pointShare * 100)}%`;
   elements.networkTotalCaption.textContent = `${formatCompact.format(state.networkTotalPoints)} total public points`;
   elements.moonsheetValue.textContent = formatUsdCompact.format(projection.baseScenario.estimatedValue);
-  elements.projectedSnapshotPoints.textContent = formatCompact.format(projection.projectedFarmPoints);
+  if (projection.projectionUsesSnapshots && Number.isFinite(projection.latestFarmDailyPoints)) {
+    elements.projectionSummaryLabel.textContent = projection.projectionMode === "live" ? "Live Pace" : "Daily Pace";
+    elements.projectedSnapshotPoints.textContent = formatCompact.format(projection.latestFarmDailyPoints);
+    elements.projectionSummaryCaption.textContent =
+      projection.projectionMode === "live"
+        ? `Since ${projection.projectionSnapshotDate}`
+        : `Latest snapshot delta`;
+  } else {
+    elements.projectionSummaryLabel.textContent = "Daily Pace";
+    elements.projectedSnapshotPoints.textContent = "Waiting";
+    elements.projectionSummaryCaption.textContent = "Needs stored snapshot baseline";
+  }
   elements.projectionStatus.textContent = state.lastUpdated ? `Snapshot ${snapshotLabel}` : "Waiting for live data";
   elements.moonCurrentPoints.textContent = formatCompact.format(state.total);
   elements.moonTotalPoints.textContent = formatCompact.format(state.networkTotalPoints);
