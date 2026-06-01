@@ -35,6 +35,7 @@ const formatCompact = new Intl.NumberFormat("en-US", {
 
 const state = {
   activeRange: "10",
+  activeChartMode: "leaderboard",
   leaderboard: [],
   pointsDistributed: null,
   dailyHistory: [],
@@ -66,8 +67,11 @@ const elements = {
   pointsUpdated: document.querySelector("#pointsUpdated"),
   pointsTotalLabel: document.querySelector("#pointsTotalLabel"),
   pointsTotal: document.querySelector("#pointsTotal"),
+  chartRangeMetricLabel: document.querySelector("#chartRangeMetricLabel"),
   chartRangeLabel: document.querySelector("#chartRangeLabel"),
+  chartAverageMetricLabel: document.querySelector("#chartAverageMetricLabel"),
   chartAverage: document.querySelector("#chartAverage"),
+  chartCutoffMetricLabel: document.querySelector("#chartCutoffMetricLabel"),
   chartCutoff: document.querySelector("#chartCutoff"),
   dailyDistributed: document.querySelector("#dailyDistributed"),
   dailyDistributedMetric: document.querySelector("#dailyDistributedMetric"),
@@ -78,10 +82,15 @@ const elements = {
   chartLowLabel: document.querySelector("#chartLowLabel"),
   chartHighLabel: document.querySelector("#chartHighLabel"),
   headerPoints: document.querySelector("#headerPoints"),
+  miniStatOneLabel: document.querySelector("#miniStatOneLabel"),
   epochPace: document.querySelector("#epochPace"),
+  miniStatTwoLabel: document.querySelector("#miniStatTwoLabel"),
   multiplier: document.querySelector("#multiplier"),
+  miniStatThreeLabel: document.querySelector("#miniStatThreeLabel"),
   nextRank: document.querySelector("#nextRank"),
   syncStatusText: document.querySelector("#syncStatusText"),
+  chartTitle: document.querySelector("#chartTitle"),
+  chartDesc: document.querySelector("#chartDesc"),
   chartLine: document.querySelector("#chartLine"),
   chartArea: document.querySelector("#chartArea"),
   chartDots: document.querySelector("#chartDots"),
@@ -494,6 +503,59 @@ function getRangeStats() {
   return { span, rows, total, average, cutoff, top };
 }
 
+function getDailyChartRows() {
+  const snapshotRows = state.backendDailyHistory.length > 0
+    ? state.backendDailyHistory
+    : state.staticSnapshotHistory;
+
+  if (snapshotRows.length > 0) {
+    return snapshotRows
+      .slice(1)
+      .map((snapshot, index) => {
+        const previousSnapshot = snapshotRows[index];
+        return {
+          date: snapshot.date,
+          value: Math.max(0, snapshot.distributedPoints - previousSnapshot.distributedPoints),
+          total: snapshot.distributedPoints,
+        };
+      })
+      .slice(-30);
+  }
+
+  return state.dailyHistory
+    .slice(1)
+    .map((row, index) => {
+      const previousRow = state.dailyHistory[index];
+      return {
+        date: row.date,
+        value: Math.max(0, row.lastTotal - previousRow.lastTotal),
+        total: row.lastTotal,
+      };
+    })
+    .slice(-30);
+}
+
+function getDailyChartMeta() {
+  const rows = getDailyChartRows();
+  const snapshotRows = state.backendDailyHistory.length > 0
+    ? state.backendDailyHistory
+    : state.staticSnapshotHistory.length > 0
+      ? state.staticSnapshotHistory
+      : state.dailyHistory;
+  const latestSnapshot = snapshotRows.at(-1);
+  const latestTotal = latestSnapshot?.distributedPoints ?? latestSnapshot?.lastTotal ?? null;
+  const average =
+    rows.length > 0 ? rows.reduce((sum, row) => sum + row.value, 0) / rows.length : null;
+
+  return {
+    rows,
+    average,
+    latestTotal,
+    latestDelta: rows.at(-1)?.value ?? null,
+    snapshotCount: snapshotRows.length,
+  };
+}
+
 function setValueState(element, text, isPending = false) {
   element.textContent = text;
   element.classList.toggle("pending-value", isPending);
@@ -594,7 +656,55 @@ function chartPath(values) {
   });
 }
 
+function renderDailyChart() {
+  const { rows } = getDailyChartMeta();
+  const left = 40;
+  const top = 30;
+  const bottom = 230;
+  const width = 580;
+  const height = bottom - top;
+  const max = Math.max(...rows.map((row) => row.value), 1);
+
+  elements.chartTitle.textContent = "Daily Saturn points by snapshot";
+  elements.chartDesc.textContent = "A column chart showing daily Saturn points distributed between stored snapshots.";
+  elements.chartLine.setAttribute("d", "");
+  elements.chartArea.setAttribute("d", "");
+
+  if (rows.length === 0) {
+    elements.chartDots.innerHTML = `
+      <text class="chart-empty-title" x="320" y="122" text-anchor="middle">Ready tomorrow</text>
+      <text class="chart-empty-copy" x="320" y="148" text-anchor="middle">Daily bars need at least two stored snapshots.</text>
+    `;
+    return;
+  }
+
+  const step = width / rows.length;
+  const barWidth = Math.max(12, Math.min(52, step * 0.58));
+
+  elements.chartDots.innerHTML = rows
+    .map((row, index) => {
+      const x = left + index * step + (step - barWidth) / 2;
+      const barHeight = Math.max(4, (row.value / max) * height);
+      const y = bottom - barHeight;
+      const label = `${row.date} | ${formatCompact.format(row.value)} daily points | ${formatCompact.format(row.total)} total points`;
+
+      return `
+        <g class="chart-point" tabindex="0" aria-label="${escapeHtml(label)}">
+          <rect class="chart-hit-area" x="${x - 6}" y="${top}" width="${barWidth + 12}" height="${height}"></rect>
+          <rect class="chart-bar" x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="8"></rect>
+          <title>${escapeHtml(label)}</title>
+        </g>
+      `;
+    })
+    .join("");
+}
+
 function renderChart() {
+  if (state.activeChartMode === "daily") {
+    renderDailyChart();
+    return;
+  }
+
   const span = Number(state.activeRange);
   const rows = state.leaderboard
     .slice(0, span)
@@ -605,6 +715,8 @@ function renderChart() {
   const area = `${line} L${points.at(-1).x} 230 L${points[0].x} 230 Z`;
   const dotStep = Math.max(1, Math.ceil(points.length / 12));
 
+  elements.chartTitle.textContent = "Saturn points trend";
+  elements.chartDesc.textContent = "A line chart showing public Saturn leaderboard point distribution.";
   elements.chartLine.setAttribute("d", line);
   elements.chartArea.setAttribute("d", area);
   elements.chartDots.innerHTML = rows.length
@@ -706,8 +818,10 @@ function setWalletDisplay({ loading = false, error = "" } = {}) {
     elements.walletAddress.textContent = "No wallet selected";
     elements.rankMetric.textContent = "—";
     elements.rankCaption.textContent = "Enter wallet to calculate";
-    elements.pointsTotalLabel.textContent = `Top ${range.span} Wallet Points`;
-    elements.pointsTotal.textContent = formatCompact.format(range.total);
+    if (state.activeChartMode !== "daily") {
+      elements.pointsTotalLabel.textContent = `Top ${range.span} Wallet Points`;
+      elements.pointsTotal.textContent = formatCompact.format(range.total);
+    }
     return;
   }
 
@@ -719,26 +833,24 @@ function setWalletDisplay({ loading = false, error = "" } = {}) {
   elements.rankCaption.textContent = state.trackedRank
     ? `Top-1000 public leaderboard rank`
     : "Outside the public top-1000 window";
-  elements.pointsTotalLabel.textContent = "Tracked Wallet Points";
-  elements.pointsTotal.textContent = formatPoints.format(state.trackedPoints);
+  if (state.activeChartMode !== "daily") {
+    elements.pointsTotalLabel.textContent = "Tracked Wallet Points";
+    elements.pointsTotal.textContent = formatPoints.format(state.trackedPoints);
+  }
 }
 
 function renderDashboard() {
-  const updated = state.lastUpdated ? state.lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—";
+  const updated = state.lastUpdated ? state.lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "-";
   const topWallet = state.leaderboard[0];
   const range = getRangeStats();
   const dailyStats = getDailyStats();
+  const dailyChart = getDailyChartMeta();
 
   elements.tvlMetric.textContent = formatNumber.format(state.leaderboard.length);
   elements.pointsDistributed.textContent = state.pointsDistributed == null ? "Loading" : formatCompact.format(state.pointsDistributed);
   elements.pointsUpdated.textContent = state.lastUpdated ? `Updated ${updated}` : "Public Merkl data";
   elements.headerPoints.textContent = state.pointsDistributed == null ? "0.0" : formatCompact.format(state.pointsDistributed);
-  elements.epochPace.textContent = `${formatNumber.format(state.leaderboard.length)} rows`;
-  elements.multiplier.textContent = topWallet ? formatCompact.format(topWallet.points) : "—";
-  elements.nextRank.textContent = `Top ${state.activeRange}`;
-  elements.chartRangeLabel.textContent = `Top ${range.span} wallets`;
-  elements.chartAverage.textContent = range.rows.length > 0 ? formatCompact.format(range.average) : "—";
-  elements.chartCutoff.textContent = range.rows.length > 0 ? formatCompact.format(range.cutoff) : "—";
+
   const dailyText = dailyStats.todayDelta == null ? dailyStats.pendingLabel : formatCompact.format(dailyStats.todayDelta);
   const waitingForBaseline = dailyStats.trackedDays < 2 || dailyStats.todayDelta == null;
 
@@ -752,15 +864,57 @@ function renderDashboard() {
   );
   setValueState(
     elements.dailyAverage,
-    dailyStats.average == null ? (waitingForBaseline ? "Need 2 days" : "—") : formatCompact.format(dailyStats.average),
+    dailyStats.average == null ? (waitingForBaseline ? "Need 2 days" : "-") : formatCompact.format(dailyStats.average),
     dailyStats.average == null,
   );
   elements.trackedDays.textContent = formatNumber.format(dailyStats.trackedDays);
-  elements.chartLowLabel.textContent = range.rows.length > 0 ? `Rank #${range.rows.at(-1).rank}` : `Rank #${range.span}`;
-  elements.chartHighLabel.textContent = range.rows.length > 0 ? `Rank #${range.rows[0].rank}` : "Rank #1";
   elements.syncStatusText.textContent = state.lastUpdated ? `Updated ${updated}` : "Loading public data";
 
-  if (!state.trackedWallet) {
+  if (state.activeChartMode === "daily") {
+    elements.pointsTotalLabel.textContent = "Daily Saturn Points";
+    setValueState(
+      elements.pointsTotal,
+      dailyChart.latestDelta == null ? dailyStats.pendingLabel : formatCompact.format(dailyChart.latestDelta),
+      dailyChart.latestDelta == null,
+    );
+    elements.chartRangeMetricLabel.textContent = "Snapshots";
+    elements.chartRangeLabel.textContent =
+      dailyChart.snapshotCount > 1 ? `${formatNumber.format(dailyChart.snapshotCount)} stored snapshots` : "Need 2 snapshots";
+    elements.chartAverageMetricLabel.textContent = "Average / Day";
+    setValueState(
+      elements.chartAverage,
+      dailyChart.average == null ? "Need 2 days" : formatCompact.format(dailyChart.average),
+      dailyChart.average == null,
+    );
+    elements.chartCutoffMetricLabel.textContent = "Latest Total";
+    elements.chartCutoff.textContent = dailyChart.latestTotal == null ? "-" : formatCompact.format(dailyChart.latestTotal);
+    elements.miniStatOneLabel.textContent = "Stored Snapshots";
+    elements.epochPace.textContent = formatNumber.format(dailyChart.snapshotCount);
+    elements.miniStatTwoLabel.textContent = "Latest Daily";
+    elements.multiplier.textContent = dailyChart.latestDelta == null ? "-" : formatCompact.format(dailyChart.latestDelta);
+    elements.miniStatThreeLabel.textContent = "Chart Mode";
+    elements.nextRank.textContent = "Daily";
+    elements.chartLowLabel.textContent = dailyChart.rows[0]?.date ?? "Need 2 snapshots";
+    elements.chartHighLabel.textContent = dailyChart.rows.at(-1)?.date ?? "Next snapshot";
+  } else {
+    elements.pointsTotal.classList.remove("pending-value");
+    elements.chartRangeMetricLabel.textContent = "Range";
+    elements.chartRangeLabel.textContent = `Top ${range.span} wallets`;
+    elements.chartAverageMetricLabel.textContent = "Average / Wallet";
+    setValueState(elements.chartAverage, range.rows.length > 0 ? formatCompact.format(range.average) : "-", false);
+    elements.chartCutoffMetricLabel.textContent = "Cutoff Points";
+    elements.chartCutoff.textContent = range.rows.length > 0 ? formatCompact.format(range.cutoff) : "-";
+    elements.miniStatOneLabel.textContent = "Public Rows";
+    elements.epochPace.textContent = `${formatNumber.format(state.leaderboard.length)} rows`;
+    elements.miniStatTwoLabel.textContent = "#1 Points";
+    elements.multiplier.textContent = topWallet ? formatCompact.format(topWallet.points) : "-";
+    elements.miniStatThreeLabel.textContent = "Selected Range";
+    elements.nextRank.textContent = `Top ${state.activeRange}`;
+    elements.chartLowLabel.textContent = range.rows.length > 0 ? `Rank #${range.rows.at(-1).rank}` : `Rank #${range.span}`;
+    elements.chartHighLabel.textContent = range.rows.length > 0 ? `Rank #${range.rows[0].rank}` : "Rank #1";
+  }
+
+  if (!state.trackedWallet && state.activeChartMode !== "daily") {
     elements.pointsTotalLabel.textContent = `Top ${range.span} Wallet Points`;
     elements.pointsTotal.textContent = range.rows.length > 0 ? formatCompact.format(range.total) : "0.0";
   }
@@ -841,10 +995,17 @@ async function trackWallet(address) {
 }
 
 function setActiveRange(range) {
-  state.activeRange = range;
+  if (range === "daily") {
+    state.activeChartMode = "daily";
+  } else {
+    state.activeChartMode = "leaderboard";
+    state.activeRange = range;
+  }
+
+  const activeRange = state.activeChartMode === "daily" ? "daily" : state.activeRange;
 
   document.querySelectorAll(".segment").forEach((button) => {
-    button.classList.toggle("active", button.dataset.range === range);
+    button.classList.toggle("active", button.dataset.range === activeRange);
   });
 
   renderDashboard();

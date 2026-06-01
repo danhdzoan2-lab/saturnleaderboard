@@ -301,6 +301,17 @@
         stroke-width: 4;
       }
 
+      .chart-bar {
+        fill: url("#barFill");
+        stroke: rgba(255, 122, 45, 0.55);
+        stroke-width: 1;
+        filter: drop-shadow(0 0 14px rgba(255, 90, 20, 0.22));
+        transition:
+          filter 160ms ease,
+          opacity 160ms ease,
+          transform 160ms ease;
+      }
+
       .chart-point {
         cursor: crosshair;
         outline: none;
@@ -323,6 +334,28 @@
         r: 7;
         stroke-width: 5;
         filter: drop-shadow(0 0 10px rgba(255, 90, 20, 0.7));
+      }
+
+      .chart-point:hover .chart-bar,
+      .chart-point:focus .chart-bar {
+        opacity: 1;
+        filter: drop-shadow(0 0 18px rgba(255, 90, 20, 0.62));
+      }
+
+      .chart-empty-title,
+      .chart-empty-copy {
+        fill: var(--muted);
+        font-family: var(--font-display);
+        font-weight: 950;
+      }
+
+      .chart-empty-title {
+        fill: var(--text);
+        font-size: 1.1rem;
+      }
+
+      .chart-empty-copy {
+        font-size: 0.78rem;
       }
 
       .chart-tooltip {
@@ -793,10 +826,11 @@
               <span class="card-label">/ Points Distribution</span>
               <h2>Leaderboard points</h2>
             </div>
-            <div class="segmented" role="group" aria-label="Leaderboard chart span">
+            <div class="segmented" role="group" aria-label="Points chart mode">
               <button class="segment active" type="button" data-range="10">Top 10</button>
               <button class="segment" type="button" data-range="50">Top 50</button>
               <button class="segment" type="button" data-range="100">Top 100</button>
+              <button class="segment" type="button" data-range="daily">Daily</button>
             </div>
           </div>
 
@@ -807,15 +841,15 @@
 
           <div class="chart-summary" aria-label="Selected leaderboard range summary">
             <span>
-              <small>Range</small>
+              <small id="chartRangeMetricLabel">Range</small>
               <strong id="chartRangeLabel">Top 10 wallets</strong>
             </span>
             <span>
-              <small>Average / Wallet</small>
+              <small id="chartAverageMetricLabel">Average / Wallet</small>
               <strong id="chartAverage">—</strong>
             </span>
             <span>
-              <small>Cutoff Points</small>
+              <small id="chartCutoffMetricLabel">Cutoff Points</small>
               <strong id="chartCutoff">—</strong>
             </span>
           </div>
@@ -854,6 +888,10 @@
                   <stop offset="0%" stop-color="#ff5a14" stop-opacity="0.42" />
                   <stop offset="100%" stop-color="#ff5a14" stop-opacity="0" />
                 </linearGradient>
+                <linearGradient id="barFill" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stop-color="#ff7a2d" stop-opacity="0.95" />
+                  <stop offset="100%" stop-color="#ff5a14" stop-opacity="0.35" />
+                </linearGradient>
               </defs>
               <g class="grid-lines" aria-hidden="true">
                 <path d="M40 30H620" />
@@ -875,15 +913,15 @@
 
           <div class="mini-stats">
             <span>
-              <small>Public Rows</small>
+              <small id="miniStatOneLabel">Public Rows</small>
               <strong id="epochPace">—</strong>
             </span>
             <span>
-              <small>#1 Points</small>
+              <small id="miniStatTwoLabel">#1 Points</small>
               <strong id="multiplier">—</strong>
             </span>
             <span>
-              <small>Selected Range</small>
+              <small id="miniStatThreeLabel">Selected Range</small>
               <strong id="nextRank">—</strong>
             </span>
           </div>
@@ -943,7 +981,7 @@
       <span>Read-only point tracker</span>
     </footer>
 
-    <script src="app.js?v=20260601-static-snapshot-v2" defer></script>
+    <script src="app.js?v=20260601-daily-chart" defer></script>
     <script>
       document.addEventListener("DOMContentLoaded", () => {
         const total = document.querySelector("#pointsTotal");
