@@ -1,0 +1,48 @@
+name: Capture Saturn Snapshot
+
+on:
+  schedule:
+    - cron: "30 0 * * *"
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/capture-snapshot.yml"
+      - "scripts/capture-static-snapshot.js"
+      - "api/_lib/saturn.js"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: saturn-snapshot
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Capture snapshot
+        run: node scripts/capture-static-snapshot.js
+
+      - name: Commit snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add snapshots
+          if git diff --cached --quiet; then
+            echo "No snapshot changes"
+          else
+            git commit -m "Capture Saturn snapshot $(date -u +'%Y-%m-%d')"
+            git push
+          fi

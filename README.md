@@ -32,6 +32,7 @@ The farm analysis page does not ship fixed wallet addresses. Users paste one or 
 
 The production dashboard can record backend leaderboard snapshots once per day at `00:30 UTC`.
 Those snapshots power the `Movement` column in the public leaderboard and the daily distribution cards.
+If Redis is not configured, the site can also read committed static snapshots from `snapshots/`. The GitHub Actions workflow captures those files daily at `00:30 UTC`.
 
 ### Required Vercel Setup
 
