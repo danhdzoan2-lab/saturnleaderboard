@@ -428,33 +428,37 @@ function getBackendDailyStats() {
 function getStaticDailyStats() {
   const rows = state.staticSnapshotHistory;
   const snapshotKey = getEligibleSnapshotDateKey();
+  const currentSnapshot = rows.find((snapshot) => snapshot.date === snapshotKey);
   const previousSnapshot = rows
     .filter((snapshot) => (snapshotKey ? snapshot.date < snapshotKey : true))
     .at(-1);
-  const todayDelta =
-    previousSnapshot && Number.isFinite(state.pointsDistributed)
-      ? Math.max(0, state.pointsDistributed - previousSnapshot.distributedPoints)
-      : null;
   const deltas = [];
 
   for (let index = 1; index < rows.length; index += 1) {
     deltas.push(Math.max(0, rows[index].distributedPoints - rows[index - 1].distributedPoints));
   }
 
-  if (todayDelta != null) {
-    deltas.push(todayDelta);
-  }
+  const liveDelta =
+    !currentSnapshot && previousSnapshot && Number.isFinite(state.pointsDistributed)
+      ? Math.max(0, state.pointsDistributed - previousSnapshot.distributedPoints)
+      : null;
+  const todayDelta = currentSnapshot ? deltas.at(-1) ?? null : liveDelta;
+  const allDeltas = liveDelta != null ? [...deltas, liveDelta] : deltas;
 
-  const recentDeltas = deltas.slice(-7);
+  const recentDeltas = allDeltas.slice(-7);
   const average =
     recentDeltas.length > 0 ? recentDeltas.reduce((sum, value) => sum + value, 0) / recentDeltas.length : null;
 
   return {
     todayDelta,
-    previousDelta: deltas.length > 1 ? deltas.at(-2) : null,
+    previousDelta: allDeltas.length > 1 ? allDeltas.at(-2) : null,
     average,
-    trackedDays: rows.length + (todayDelta != null ? 1 : 0),
-    caption: previousSnapshot ? `Since UTC snapshot ${previousSnapshot.date}` : "Static baseline ready",
+    trackedDays: rows.length + (liveDelta != null ? 1 : 0),
+    caption: currentSnapshot
+      ? `Last UTC snapshot ${currentSnapshot.date}`
+      : previousSnapshot
+        ? `Since UTC snapshot ${previousSnapshot.date}`
+        : "Static baseline ready",
     pendingLabel: previousSnapshot ? "Tracking" : "Ready tomorrow",
     source: "static",
   };
