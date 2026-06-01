@@ -352,8 +352,9 @@ function getSnapshotProjectionInputs() {
 
   if (!previousSnapshot) {
     return {
-      available: true,
+      available: false,
       mode: "live",
+      reason: "Needs the next stored snapshot to calculate a full daily pace",
       latestSnapshot,
       previousSnapshot: null,
       latestFarmSnapshotPoints: latestWallet.total,
@@ -392,10 +393,11 @@ function getProjection() {
   const daysToSnapshot = Math.max(0, (SNAPSHOT_DATE.getTime() - now.getTime()) / DAY_MS);
   const wholeDaysToSnapshot = Math.ceil(daysToSnapshot);
   const snapshotProjection = getSnapshotProjectionInputs();
-  const projectedFarmPoints = snapshotProjection.available
+  const hasDailySnapshotPace = snapshotProjection.available && snapshotProjection.mode === "snapshot";
+  const projectedFarmPoints = hasDailySnapshotPace
     ? snapshotProjection.latestFarmSnapshotPoints + snapshotProjection.latestFarmDailyPoints * wholeDaysToSnapshot
     : state.total;
-  const projectedNetworkPoints = snapshotProjection.available
+  const projectedNetworkPoints = hasDailySnapshotPace
     ? snapshotProjection.latestNetworkSnapshotPoints + snapshotProjection.latestNetworkDailyPoints * wholeDaysToSnapshot
     : state.networkTotalPoints;
   const pointShare = projectedNetworkPoints > 0 ? projectedFarmPoints / projectedNetworkPoints : 0;
@@ -418,12 +420,12 @@ function getProjection() {
     baseScenario,
     projectedFarmPoints,
     projectedNetworkPoints,
-    latestFarmDailyPoints: snapshotProjection.available ? snapshotProjection.latestFarmDailyPoints : null,
-    latestNetworkDailyPoints: snapshotProjection.available ? snapshotProjection.latestNetworkDailyPoints : null,
+    latestFarmDailyPoints: Number.isFinite(snapshotProjection.latestFarmDailyPoints) ? snapshotProjection.latestFarmDailyPoints : null,
+    latestNetworkDailyPoints: Number.isFinite(snapshotProjection.latestNetworkDailyPoints) ? snapshotProjection.latestNetworkDailyPoints : null,
     projectionSnapshotDate: snapshotProjection.latestSnapshot?.date ?? null,
     projectionMode: snapshotProjection.mode ?? "fallback",
     projectionReason: snapshotProjection.reason ?? "",
-    projectionUsesSnapshots: snapshotProjection.available,
+    projectionUsesSnapshots: hasDailySnapshotPace,
   };
 }
 
@@ -646,7 +648,9 @@ function render() {
     ? projection.projectionMode === "live"
       ? `Projection uses the latest stored snapshot ${projection.projectionSnapshotDate}: farm snapshot total + ${formatCompact.format(projection.latestFarmDailyPoints)} live points earned since that snapshot x ${formatNumber.format(Math.ceil(projection.daysToSnapshot))} days. After the next snapshot, it switches to snapshot-to-snapshot daily pace.`
       : `Projection uses the latest stored snapshot ${projection.projectionSnapshotDate}: farm snapshot total + ${formatCompact.format(projection.latestFarmDailyPoints)} latest daily farm points x ${formatNumber.format(Math.ceil(projection.daysToSnapshot))} days. Network projection uses ${formatCompact.format(projection.latestNetworkDailyPoints)} latest daily public points.`
-    : `Projection will switch to daily snapshot pace after two stored snapshots are available. Current estimate uses live totals only: ${projection.projectionReason || "waiting for snapshot baseline"}.`;
+    : projection.projectionMode === "live"
+      ? `Live pace is an intraday preview since ${projection.projectionSnapshotDate}; the official projected snapshot starts after the next 00:30 UTC stored snapshot creates a full-day delta. Current estimate uses live totals only.`
+      : `Projection will switch to daily snapshot pace after two stored snapshots are available. Current estimate uses live totals only: ${projection.projectionReason || "waiting for snapshot baseline"}.`;
 
   elements.walletCountStat.textContent = formatNumber.format(walletCount);
   elements.farmHeaderPoints.textContent = formatCompact.format(state.total);
@@ -656,12 +660,13 @@ function render() {
   elements.networkTotalCaption.textContent = `${formatCompact.format(state.networkTotalPoints)} total public points`;
   elements.moonsheetValue.textContent = formatUsdCompact.format(projection.baseScenario.estimatedValue);
   if (projection.projectionUsesSnapshots && Number.isFinite(projection.latestFarmDailyPoints)) {
-    elements.projectionSummaryLabel.textContent = projection.projectionMode === "live" ? "Live Pace" : "Daily Pace";
+    elements.projectionSummaryLabel.textContent = "Daily Pace";
     elements.projectedSnapshotPoints.textContent = formatCompact.format(projection.latestFarmDailyPoints);
-    elements.projectionSummaryCaption.textContent =
-      projection.projectionMode === "live"
-        ? `Since ${projection.projectionSnapshotDate}`
-        : `Latest snapshot delta`;
+    elements.projectionSummaryCaption.textContent = "Latest snapshot delta";
+  } else if (projection.projectionMode === "live" && Number.isFinite(projection.latestFarmDailyPoints)) {
+    elements.projectionSummaryLabel.textContent = "Live Pace";
+    elements.projectedSnapshotPoints.textContent = formatCompact.format(projection.latestFarmDailyPoints);
+    elements.projectionSummaryCaption.textContent = `Partial since ${projection.projectionSnapshotDate}`;
   } else {
     elements.projectionSummaryLabel.textContent = "Daily Pace";
     elements.projectedSnapshotPoints.textContent = "Waiting";
@@ -672,8 +677,12 @@ function render() {
   elements.moonTotalPoints.textContent = formatCompact.format(state.networkTotalPoints);
   elements.moonShare.textContent = `${formatPercent.format(projection.pointShare * 100)}%`;
   elements.moonPoolValue.textContent = formatUsdCompact.format(SNAPSHOT_TVL_USD);
-  elements.moonProjectedFarm.textContent = formatCompact.format(projection.projectedFarmPoints);
-  elements.moonProjectedTotal.textContent = formatCompact.format(projection.projectedNetworkPoints);
+  elements.moonProjectedFarm.textContent = projection.projectionUsesSnapshots
+    ? formatCompact.format(projection.projectedFarmPoints)
+    : "Waiting";
+  elements.moonProjectedTotal.textContent = projection.projectionUsesSnapshots
+    ? formatCompact.format(projection.projectedNetworkPoints)
+    : "Waiting";
   elements.moonDays.textContent = `${formatNumber.format(Math.ceil(projection.daysToSnapshot))}`;
   elements.moonEstimatedValue.textContent = formatUsd.format(projection.baseScenario.estimatedValue);
   elements.projectionNote.textContent =
