@@ -8,6 +8,7 @@ const SNAPSHOT_TVL_USD = 500_000_000;
 const BASE_FDV_USD = 500_000_000;
 const WALLET_STORAGE_KEY = "saturn:farm-wallets:v1";
 const STATIC_SNAPSHOT_CACHE_VERSION = "20260601-0030";
+const PENDLE_YT_USDAT_MARKET = "0x9afe7a057a09cf5da748d952078c9c99938b4329";
 const FDV_SCENARIOS = Array.from({ length: 18 }, (_, index) => {
   const fdv = 150_000_000 + index * 50_000_000;
 
@@ -26,6 +27,7 @@ const urls = {
   userRewards: (address) => `https://api.merkl.xyz/v4/users/${address}/rewards?chainId=${CHAIN_ID}`,
   recipient: (address) =>
     `https://api.merkl.xyz/v4/rewards/token/?chainId=${CHAIN_ID}&address=${SATURN_POINT_TOKEN}&recipient=${address}`,
+  pendleMarketPrices: `https://api-v2.pendle.finance/core/v1/sdk/${CHAIN_ID}/markets/${PENDLE_YT_USDAT_MARKET}/swapping-prices`,
 };
 
 const formatNumber = new Intl.NumberFormat("en-US", {
@@ -72,6 +74,8 @@ const state = {
   total: 0,
   totalPending: 0,
   networkTotalPoints: 0,
+  pendleImpliedApy: null,
+  pendleImpliedStatus: "Loading Pendle market",
   lastUpdated: null,
 };
 
@@ -224,6 +228,54 @@ async function fetchJson(url) {
     throw new Error(`HTTP ${response.status} from ${new URL(url).hostname}`);
   }
   return response.json();
+}
+
+function findNumericKey(source, matcher) {
+  const stack = [source];
+  const seen = new Set();
+
+  while (stack.length > 0) {
+    const value = stack.pop();
+
+    if (!value || typeof value !== "object" || seen.has(value)) continue;
+    seen.add(value);
+
+    for (const [key, child] of Object.entries(value)) {
+      if (matcher(key) && typeof child === "number" && Number.isFinite(child)) {
+        return child;
+      }
+
+      if (child && typeof child === "object") {
+        stack.push(child);
+      }
+    }
+  }
+
+  return null;
+}
+
+function normalizeApy(value) {
+  if (!Number.isFinite(value)) return null;
+
+  return Math.abs(value) > 1 ? value / 100 : value;
+}
+
+async function refreshPendleImpliedApy() {
+  try {
+    const payload = await fetchJson(urls.pendleMarketPrices);
+    const impliedApy = findNumericKey(payload, (key) => /implied.*apy/i.test(key));
+    const normalized = normalizeApy(impliedApy);
+
+    if (normalized === null) {
+      throw new Error("Pendle implied APY not found");
+    }
+
+    state.pendleImpliedApy = normalized;
+    state.pendleImpliedStatus = "Pendle YT USDat market";
+  } catch {
+    state.pendleImpliedApy = null;
+    state.pendleImpliedStatus = "Pendle data unavailable";
+  }
 }
 
 function fallbackCopy(text) {
@@ -659,19 +711,13 @@ function render() {
   elements.pointShare.textContent = `${formatPercent.format(projection.pointShare * 100)}%`;
   elements.networkTotalCaption.textContent = `${formatCompact.format(state.networkTotalPoints)} total public points`;
   elements.moonsheetValue.textContent = formatUsdCompact.format(projection.baseScenario.estimatedValue);
-  if (projection.projectionUsesSnapshots && Number.isFinite(projection.latestFarmDailyPoints)) {
-    elements.projectionSummaryLabel.textContent = "Daily Pace";
-    elements.projectedSnapshotPoints.textContent = formatCompact.format(projection.latestFarmDailyPoints);
-    elements.projectionSummaryCaption.textContent = "Latest snapshot delta";
-  } else if (projection.projectionMode === "live" && Number.isFinite(projection.latestFarmDailyPoints)) {
-    elements.projectionSummaryLabel.textContent = "Live Pace";
-    elements.projectedSnapshotPoints.textContent = formatCompact.format(projection.latestFarmDailyPoints);
-    elements.projectionSummaryCaption.textContent = `Partial since ${projection.projectionSnapshotDate}`;
-  } else {
-    elements.projectionSummaryLabel.textContent = "Daily Pace";
-    elements.projectedSnapshotPoints.textContent = "Waiting";
-    elements.projectionSummaryCaption.textContent = "Needs stored snapshot baseline";
-  }
+  elements.projectionSummaryLabel.textContent = "YT USDat Implied";
+  elements.projectedSnapshotPoints.textContent = Number.isFinite(state.pendleImpliedApy)
+    ? `${formatPercent.format(state.pendleImpliedApy * 100)}%`
+    : state.pendleImpliedStatus === "Loading Pendle market"
+      ? "Loading"
+      : "Unavailable";
+  elements.projectionSummaryCaption.textContent = state.pendleImpliedStatus;
   elements.projectionStatus.textContent = state.lastUpdated ? `Snapshot ${snapshotLabel}` : "Waiting for live data";
   elements.moonCurrentPoints.textContent = formatCompact.format(state.total);
   elements.moonTotalPoints.textContent = formatCompact.format(state.networkTotalPoints);
@@ -709,6 +755,7 @@ async function refreshFarm() {
   elements.farmSyncStatus.textContent = "Loading public data";
 
   try {
+    const pendleMarketPromise = refreshPendleImpliedApy();
     const [leaderboardRaw, totalRaw, excludedRows] = await Promise.all([
       fetchJson(urls.leaderboard),
       fetchJson(urls.total),
@@ -722,7 +769,7 @@ async function refreshFarm() {
     state.networkTotalPoints = unitsToNumber(totalAmount(totalRaw) - totalAmount(excludedRows?.[0]));
     state.rows = enrichRows(walletRows);
     state.lastUpdated = new Date();
-    await loadStaticSnapshotHistory();
+    await Promise.all([loadStaticSnapshotHistory(), pendleMarketPromise]);
     render();
   } catch (error) {
     elements.farmSyncStatus.textContent = "Public data failed to load";
