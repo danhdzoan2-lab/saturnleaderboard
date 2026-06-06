@@ -616,13 +616,12 @@
           grid-template-areas:
             "rank wallet"
             "rank points"
-            "daily-points daily-points"
-            "movement movement";
-          gap: 8px 14px;
+            "daily-points movement";
+          gap: 9px 12px;
           align-items: center;
-          padding: 14px;
+          padding: 12px;
           border: 1px solid var(--line);
-          border-radius: 18px;
+          border-radius: 16px;
           background:
             radial-gradient(circle at 18% 0%, rgba(255, 90, 20, 0.1), transparent 48%),
             rgba(0, 0, 0, 0.18);
@@ -665,17 +664,24 @@
         #leaderboard td:nth-child(4)::before,
         #leaderboard td:nth-child(5)::before {
           display: block;
-          margin-bottom: 4px;
+          margin-bottom: 3px;
           color: var(--muted);
           font-family: var(--font-display);
-          font-size: 0.68rem;
+          font-size: 0.58rem;
           font-weight: 950;
-          letter-spacing: 0.12em;
+          letter-spacing: 0.1em;
           text-transform: uppercase;
         }
 
         #leaderboard td:nth-child(3)::before {
           content: "Points";
+        }
+
+        #leaderboard td:nth-child(3)::after {
+          content: " pts";
+          color: var(--muted);
+          font-size: 0.78rem;
+          font-weight: 900;
         }
 
         #leaderboard td:nth-child(4)::before {
@@ -687,8 +693,8 @@
         }
 
         #leaderboard .leaderboard-rank-badge {
-          width: 50px;
-          height: 50px;
+          width: 48px;
+          height: 48px;
           margin: 0;
           border-radius: 16px;
           font-size: 1.1rem;
@@ -700,18 +706,41 @@
         }
 
         #leaderboard .leaderboard-wallet-link strong,
-        #leaderboard td:nth-child(3),
-        #leaderboard td:nth-child(4) {
+        #leaderboard td:nth-child(3) {
           font-size: 1.02rem;
           font-weight: 950;
           overflow-wrap: anywhere;
+        }
+
+        #leaderboard td:nth-child(3) {
+          align-self: start;
+          color: var(--text);
+          line-height: 1.05;
+        }
+
+        #leaderboard td:nth-child(4),
+        #leaderboard td:nth-child(5) {
+          min-width: 0;
+        }
+
+        #leaderboard td:nth-child(4)::before {
+          content: "Daily";
+        }
+
+        #leaderboard td:nth-child(5)::before {
+          content: "Rank";
         }
 
         #leaderboard .movement-pill {
           min-width: 0;
           width: 100%;
           justify-content: center;
-          padding-block: 9px;
+          padding: 8px 8px;
+          font-size: 0.78rem;
+        }
+
+        #leaderboard .points-movement-pill {
+          font-size: 0.82rem;
         }
       }
     </style>
