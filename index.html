@@ -432,24 +432,16 @@
 
       #leaderboard table {
         width: 100% !important;
-        min-width: 760px;
+        min-width: 900px;
         table-layout: fixed;
       }
 
-      #leaderboard col:nth-child(1) {
-        width: 25% !important;
-      }
-
-      #leaderboard col:nth-child(2) {
-        width: 25% !important;
-      }
-
-      #leaderboard col:nth-child(3) {
-        width: 25% !important;
-      }
-
-      #leaderboard col:nth-child(4) {
-        width: 25% !important;
+      #leaderboard col:nth-child(1),
+      #leaderboard col:nth-child(2),
+      #leaderboard col:nth-child(3),
+      #leaderboard col:nth-child(4),
+      #leaderboard col:nth-child(5) {
+        width: 20% !important;
       }
 
       #leaderboard th,
@@ -480,12 +472,14 @@
       }
 
       #leaderboard th:nth-child(4),
-      #leaderboard td:nth-child(4) {
+      #leaderboard td:nth-child(4),
+      #leaderboard th:nth-child(5),
+      #leaderboard td:nth-child(5) {
         text-align: center !important;
       }
 
-      #leaderboard th:nth-child(n + 5),
-      #leaderboard td:nth-child(n + 5) {
+      #leaderboard th:nth-child(n + 6),
+      #leaderboard td:nth-child(n + 6) {
         display: none !important;
       }
 
@@ -622,6 +616,7 @@
           grid-template-areas:
             "rank wallet"
             "rank points"
+            "daily-points daily-points"
             "movement movement";
           gap: 8px 14px;
           align-items: center;
@@ -659,11 +654,16 @@
         }
 
         #leaderboard td:nth-child(4) {
+          grid-area: daily-points;
+        }
+
+        #leaderboard td:nth-child(5) {
           grid-area: movement;
         }
 
         #leaderboard td:nth-child(3)::before,
-        #leaderboard td:nth-child(4)::before {
+        #leaderboard td:nth-child(4)::before,
+        #leaderboard td:nth-child(5)::before {
           display: block;
           margin-bottom: 4px;
           color: var(--muted);
@@ -679,7 +679,11 @@
         }
 
         #leaderboard td:nth-child(4)::before {
-          content: "Movement";
+          content: "Daily points";
+        }
+
+        #leaderboard td:nth-child(5)::before {
+          content: "Rank move";
         }
 
         #leaderboard .leaderboard-rank-badge {
@@ -696,7 +700,8 @@
         }
 
         #leaderboard .leaderboard-wallet-link strong,
-        #leaderboard td:nth-child(3) {
+        #leaderboard td:nth-child(3),
+        #leaderboard td:nth-child(4) {
           font-size: 1.02rem;
           font-weight: 950;
           overflow-wrap: anywhere;
@@ -960,13 +965,15 @@
                 <col />
                 <col />
                 <col />
+                <col />
               </colgroup>
               <thead>
                 <tr>
                   <th>Rank</th>
                   <th>Wallet</th>
                   <th>Points</th>
-                  <th>Movement</th>
+                  <th>Daily points</th>
+                  <th>Rank move</th>
                 </tr>
               </thead>
               <tbody id="leaderboardRows"></tbody>
@@ -981,7 +988,7 @@
       <span>Read-only point tracker</span>
     </footer>
 
-    <script src="app.js?v=20260601-daily-chart" defer></script>
+    <script src="app.js?v=20260606-daily-points-movement" defer></script>
     <script>
       document.addEventListener("DOMContentLoaded", () => {
         const total = document.querySelector("#pointsTotal");

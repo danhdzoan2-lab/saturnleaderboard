@@ -46,6 +46,7 @@ const state = {
   staticSnapshotStatus: "",
   leaderboardSnapshots: loadLeaderboardSnapshots(),
   movementRanks: new Map(),
+  movementPoints: new Map(),
   movementSnapshotDate: null,
   trackedWallet: "",
   trackedPoints: 0,
@@ -268,6 +269,9 @@ function updateMovementRanks(now = new Date()) {
   state.movementSnapshotDate = previousSnapshot?.date ?? null;
   state.movementRanks = new Map(
     previousSnapshot?.rows.map((row) => [row.address.toLowerCase(), row.rank]) ?? [],
+  );
+  state.movementPoints = new Map(
+    previousSnapshot?.rows.map((row) => [row.address.toLowerCase(), row.points]) ?? [],
   );
 }
 
@@ -580,6 +584,9 @@ async function loadBackendMovement() {
     state.movementRanks = new Map(
       data.snapshot.rows.map((row) => [row.address.toLowerCase(), row.rank]),
     );
+    state.movementPoints = new Map(
+      data.snapshot.rows.map((row) => [row.address.toLowerCase(), row.points]),
+    );
     return true;
   } catch {
     return false;
@@ -616,7 +623,7 @@ function getRankMovement(row) {
 
   if (!state.movementSnapshotDate) {
     return {
-      label: state.backendMovementStatus ? "No snapshot" : "—",
+      label: state.backendMovementStatus ? "No snapshot" : "-",
       className: "neutral",
     };
   }
@@ -628,6 +635,26 @@ function getRankMovement(row) {
   const movement = previousRank - row.rank;
   if (movement > 0) return { label: `↑ ${formatNumber.format(movement)}`, className: "up" };
   if (movement < 0) return { label: `↓ ${formatNumber.format(Math.abs(movement))}`, className: "down" };
+  return { label: "0", className: "neutral" };
+}
+
+function getDailyPointMovement(row) {
+  const previousPoints = state.movementPoints.get(row.address.toLowerCase());
+
+  if (!state.movementSnapshotDate) {
+    return {
+      label: state.backendMovementStatus ? "No snapshot" : "-",
+      className: "neutral",
+    };
+  }
+
+  if (!Number.isFinite(previousPoints)) {
+    return { label: "New", className: "up" };
+  }
+
+  const movement = row.points - previousPoints;
+  if (movement > 0) return { label: `+${formatCompact.format(movement)}`, className: "up" };
+  if (movement < 0) return { label: `-${formatCompact.format(Math.abs(movement))}`, className: "down" };
   return { label: "0", className: "neutral" };
 }
 
@@ -766,6 +793,7 @@ function renderLeaderboard(query = "") {
         .map((row) => {
           const isTracked = state.trackedWallet && row.address.toLowerCase() === state.trackedWallet.toLowerCase();
           const movement = getRankMovement(row);
+          const dailyPoints = getDailyPointMovement(row);
           return `
             <tr>
               <td>
@@ -784,12 +812,13 @@ function renderLeaderboard(query = "") {
                 </a>
               </td>
               <td>${formatPoints.format(row.points)}</td>
+              <td><span class="movement-pill points-movement-pill ${dailyPoints.className}">${dailyPoints.label}</span></td>
               <td><span class="movement-pill ${movement.className}">${movement.label}</span></td>
             </tr>
           `;
         })
         .join("")
-    : '<tr class="empty-row"><td colspan="4">No wallets match your search.</td></tr>';
+    : '<tr class="empty-row"><td colspan="5">No wallets match your search.</td></tr>';
 }
 
 function setWalletDisplay({ loading = false, error = "" } = {}) {

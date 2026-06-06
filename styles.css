@@ -995,26 +995,19 @@ tr:last-child td {
   display: block !important;
 }
 
-#leaderboard th:nth-child(3),
-#leaderboard td:nth-child(3),
-#leaderboard th:nth-child(4),
-#leaderboard td:nth-child(4) {
-  display: none;
-}
-
 #leaderboard table {
   table-layout: fixed;
 }
 
 #leaderboard th,
 #leaderboard td {
-  width: 25%;
+  width: 20%;
   text-align: center;
 }
 
 #leaderboard th:nth-child(2),
 #leaderboard td:nth-child(2) {
-  text-align: left;
+  text-align: center;
 }
 
 #leaderboard .wallet-link {
